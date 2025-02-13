@@ -18,6 +18,11 @@ jobs:
         with:
           python-version: '3.9'
 
+      - name: Install selenium
+        run: |
+          python3 -m pip install --upgrade pip
+          pip install selenium
+
       - name: Run Unborn Script
         run: | 
           python3 Unborn.py
