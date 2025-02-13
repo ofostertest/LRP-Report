@@ -65,6 +65,12 @@ jobs:
         run: |
           google-chrome --version
           chromedriver --version
+
+      - name: Run Script with Debugging
+        run: |
+          set -x  # Enable debugging output
+          python3 Unborn.py || echo "Python script exited with error code $?"
+        shell: bash
           
       - name: Run Unborn Script
         run: | 
