@@ -16,11 +16,6 @@ import pandas as pd
 import time
 import logging
 
-chrome_options = Options()
-chrome_options.add_argument("--headless")
-chrome_options.add_argument("--no-sandbox")
-chrome_options.add_argument("--disable-dev-shm-usage")
-
 CREDENTIALS_PATH = 'credentials.json'
 TOKEN_PATH = 'token.json'
 SCOPES = ['https://www.googleapis.com/auth/spreadsheets']
@@ -45,8 +40,16 @@ def get_sheets_service():
 	return service
 
 logging.basicConfig(level=logging.DEBUG)
+
+chrome_options = Options()
+chrome_options.add_argument('--headless')
+chrome_options.add_argument('--no-sandbox')
+chrome_options.add_argument('--disable-dev-shm-usage')
+
 service = Service(ChromeDriverManager().install())
-driver = webdriver.Chrome(service=service, options=chrome_options)
+print("Initializing driver...")
+driver = webdriver.Chrome(service=Service(ChromeDriverManager().install()), options=chrome_options)
+print("Driver initialized successfully")
 
 driver.get("https://public.rma.usda.gov/livestockreports/LRPReport.aspx")
 
