@@ -1,7 +1,6 @@
 from selenium import webdriver
 from selenium.webdriver.chrome.service import Service
 from selenium.webdriver.chrome.options import Options
-from webdriver_manager.chrome import ChromeDriverManager
 from selenium.webdriver.common.by import By
 from selenium.webdriver.support.ui import Select, WebDriverWait
 from selenium.webdriver.support import expected_conditions as EC
@@ -38,17 +37,15 @@ def get_sheets_service():
 	creds = authenticate_google_sheets()
 	service = build('sheets', 'v4', credentials=creds)
 	return service
-
-chrome_version = subprocess.check_output(["google-chrome", "--version"]).decode("utf-8").strip().split(" ")[-1]
-
+	
 chrome_options = Options()
 chrome_options.add_argument("--headless")
 chrome_options.add_argument("--disable-gpu")
 chrome_options.add_argument("--no-sandbox")
 chrome_options.add_argument("--disable-dev-shm-usage")
 
-service = Service(ChromeDriverManager().install())
-driver = webdriver.Chrome(service=Service, options=chrome_options)
+service = Service("/usr/local/bin/chromedriver")
+driver = webdriver.Chrome(service=service, options=chrome_options)
 
 print("Chrome WebDriver successfully initialized!")
 
