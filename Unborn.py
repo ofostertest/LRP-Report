@@ -43,13 +43,13 @@ chrome_version = subprocess.check_output(["google-chrome", "--version"]).decode(
 
 chrome_options = Options()
 chrome_options.add_argument("--headless")
-options.add_argument("--disable-gpu")
+chrome_options.add_argument("--disable-gpu")
 chrome_options.add_argument("--no-sandbox")
 chrome_options.add_argument("--disable-dev-shm-usage")
 
 service = Service(ChromeDriverManager().install())
 print("Initializing driver...")
-driver = webdriver.Chrome(service=Service(ChromeDriverManager(version=chrome_version).install()), options=options)
+driver = webdriver.Chrome(service=Service(ChromeDriverManager(version=chrome_version).install()), options=chrome_options)
 print("Driver initialized successfully")
 
 driver.get("https://public.rma.usda.gov/livestockreports/LRPReport.aspx")
