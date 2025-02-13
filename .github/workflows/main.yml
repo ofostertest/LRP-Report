@@ -66,6 +66,11 @@ jobs:
           google-chrome --version
           chromedriver --version
 
+      - name: Start Chrome in Headless Mode
+        run: |
+          google-chrome --headless --disable-gpu --no-sandbox --disable-dev-shm-usage --dump-dom https://www.google.com || echo "Chrome failed to run"
+
+
       - name: Run Script with Debugging
         run: |
           set -x  # Enable debugging output
