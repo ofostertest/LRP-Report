@@ -14,6 +14,12 @@ import gspread
 import pandas as pd
 import subprocess
 import time
+import logging
+
+logging.basicConfig(level=logging.DEBUG)
+logging.debug("Starting Unborn.py")
+
+logging.debug("Setting up ChromeDriver options")
 
 os.environ["DISPLAY"] = ":99"
 
@@ -46,6 +52,7 @@ chrome_options.add_argument("--disable-gpu")
 chrome_options.add_argument("--no-sandbox")
 chrome_options.add_argument("--disable-dev-shm-usage")
 
+logging.debug("Starting WebDriver")
 service = Service("/usr/local/bin/chromedriver")
 driver = webdriver.Chrome(service=service, options=chrome_options)
 
@@ -128,4 +135,5 @@ except Exception as e:
 	print(f"Error extracting table data: {e}")
 
 driver.quit()
+logging.debug("Script finished successfully")'
 
