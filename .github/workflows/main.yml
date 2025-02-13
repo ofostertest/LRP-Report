@@ -18,26 +18,22 @@ jobs:
         with:
           python-version: '3.9'
 
-      - name: Install Dependencies
-        run: |
-          sudo apt update && sudo apt install -y wget unzip
-          wget -q https://dl.google.com/linux/direct/google-chrome-stable_current_amd64.deb
-          sudo dpkg -i google-chrome-stable_current_amd64.deb || sudo apt-get -fy install
-          wget -q https://chromedriver.storage.googleapis.com/114.0.5735.90/chromedriver_linux64.zip
-          unzip chromedriver_linux64.zip
-          sudo mv chromedriver /usr/local/bin/
-
       - name: Run Unborn Script
-        run: Unborn.py
+        run: | 
+          python3 Unborn.py
 
       - name: Run Steers1 Script
-        run: Steers1.py
+        run: |
+          python3 Steers1.py
 
       - name: Run Steers2 Script
-        run: Steers2.py
+        run: |
+          python3 Steers2.py
 
       - name: Run Heifers1 Script
-        run: Heifers1.py
+        run: |
+          python3 Heifers1.py
 
       - name: Run Heifers2 Script
-        run: Heifers2.py
+        run: |
+          python3 Heifers2.py
