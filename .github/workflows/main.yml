@@ -13,6 +13,14 @@ jobs:
       - name: Check out repository
         uses: actions/checkout@v2
 
+      - name: Set up Xvfb for headless browser
+        run: |
+          sudo apt-get install -y xvfb
+          Xvfb :99 -screen 0 1280x1024x24 &
+          sleep 5
+          export DISPLAY=:99
+          echo "Xvfb setup complete"
+
       - name: Set Up Python
         uses: actions/setup-python@v3
         with:
@@ -22,14 +30,6 @@ jobs:
         run: |
           python3 -m pip install --upgrade pip
           pip install selenium google-auth google-auth-oauthlib google-auth-httplib2 google-api-python-client gspread openpyxl pandas webdriver_manager
-
-      - name: Set up Xvfb for headless browser
-        run: |
-          sudo apt-get install -y xvfb
-          Xvfb :99 -screen 0 1280x1024x24 &
-          sleep 5
-          export DISPLAY=:99
-          echo "Xvfb setup complete"
 
       - name: Set up credentials for Google API
         run: echo "$GOOGLE_CREDENTIALS" > credentials.json
@@ -72,18 +72,6 @@ jobs:
       - name: Start Chrome in Headless Mode
         run: |
           google-chrome --headless --disable-gpu --no-sandbox --disable-dev-shm-usage --dump-dom https://www.google.com || echo "Chrome failed to run"
-
-
-      - name: Run Script with Debugging
-        run: |
-          set -x  # Enable debugging output
-          python3 Unborn.py || echo "Python script exited with error code $?"
-        shell: bash
-
-      - name: Test Chrome Headless Mode
-        run: |
-          google-chrome --headless --disable-gpu --dump-dom https://www.google.com || echo "Chrome failed to run"
-        shell: bash
 
       - name: Check Chrome & ChromeDriver
         run: |
