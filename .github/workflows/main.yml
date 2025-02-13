@@ -28,7 +28,7 @@ jobs:
           sudo apt-get update -y
           sudo apt-get install -y wget curl unzip
           sudo apt-get install -y google-chrome-stable
-
+          
           CHROMEDRIVER_VERSION=$(curl -sS chromedriver.storage.googleapis.com/LATEST_RELEASE)
           wget https://chromedriver.storage.googleapis.com/$CHROMEDRIVER_VERSION/chromedriver_linux64.zip
           unzip chromedriver_linux64.zip
@@ -38,19 +38,29 @@ jobs:
       - name: Run Unborn Script
         run: | 
           python3 Unborn.py
+        env:
+          DISPLAY: :99.0
 
       - name: Run Steers1 Script
         run: |
           python3 Steers1.py
+        env:
+          DISPLAY: :99.0  
 
       - name: Run Steers2 Script
         run: |
           python3 Steers2.py
+        env:
+          DISPLAY: :99.0  
 
       - name: Run Heifers1 Script
         run: |
           python3 Heifers1.py
+        env:
+          DISPLAY: :99.0  
 
       - name: Run Heifers2 Script
         run: |
           python3 Heifers2.py
+        env:
+          DISPLAY: :99.0  
