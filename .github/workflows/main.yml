@@ -43,29 +43,19 @@ jobs:
       - name: Run Unborn Script
         run: | 
           python3 Unborn.py
-        env:
-          DISPLAY: :99.0
 
       - name: Run Steers1 Script
         run: |
-          python3 Steers1.py
-        env:
-          DISPLAY: :99.0  
+          python3 Steers1.py  
 
       - name: Run Steers2 Script
         run: |
           python3 Steers2.py
-        env:
-          DISPLAY: :99.0  
 
       - name: Run Heifers1 Script
         run: |
           python3 Heifers1.py
-        env:
-          DISPLAY: :99.0  
 
       - name: Run Heifers2 Script
         run: |
-          python3 Heifers2.py
-        env:
-          DISPLAY: :99.0  
+          python3 Heifers2.py 
