@@ -28,17 +28,18 @@ jobs:
         env:
           GOOGLE_CREDENTIALS: ${{ secrets.GOOGLE_CREDENTIALS }}    
 
-      - name: Install Chrome and ChromeDriver
+      - name: Install Google Chrome
         run: |
-          sudo apt-get update -y
-          sudo apt-get install -y wget curl unzip
-          sudo apt-get install -y google-chrome-stable
-          
-          CHROMEDRIVER_VERSION=$(curl -sS chromedriver.storage.googleapis.com/LATEST_RELEASE)
-          wget https://chromedriver.storage.googleapis.com/$CHROMEDRIVER_VERSION/chromedriver_linux64.zip
+          wget https://dl.google.com/linux/direct/google-chrome-stable_current_amd64.deb
+          sudo dpkg -i google-chrome-stable_current_amd64.deb
+          sudo apt --fix-broken install -y
+
+      - name: Install ChromeDriver
+        run: |
+          CHROME_DRIVER_VERSION=$(curl -sS chromedriver.storage.googleapis.com/LATEST_RELEASE)
+          wget https://chromedriver.storage.googleapis.com/$CHROME_DRIVER_VERSION/chromedriver_linux64.zip
           unzip chromedriver_linux64.zip
-          sudo mv chromedriver /usr/local/bin/chromedriver
-          sudo chmod +x /usr/local/bin/chromedriver
+          sudo mv chromedriver /usr/local/bin/
           
       - name: Run Unborn Script
         run: | 
