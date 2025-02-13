@@ -71,6 +71,19 @@ jobs:
           set -x  # Enable debugging output
           python3 Unborn.py || echo "Python script exited with error code $?"
         shell: bash
+
+      - name: Test Chrome Headless Mode
+        run: |
+          google-chrome --headless --disable-gpu --dump-dom https://www.google.com || echo "Chrome failed to run"
+        shell: bash
+
+      - name: Check Chrome & ChromeDriver
+        run: |
+          echo "Chrome version: $(google-chrome --version)"
+          echo "ChromeDriver version: $(chromedriver --version)"
+          which google-chrome || echo "Google Chrome not found!"
+          which chromedriver || echo "ChromeDriver not found!"
+        shell: bash
           
       - name: Run Unborn Script
         run: | 
