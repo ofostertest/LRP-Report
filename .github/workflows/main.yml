@@ -21,6 +21,10 @@ jobs:
           export DISPLAY=:99
           echo "Xvfb setup complete"
 
+      - name: Debug Xvfb
+        run: |
+          ps aux | grep Xvfb || echo "Xvfb is NOT running!"
+
       - name: Set Up Python
         uses: actions/setup-python@v3
         with:
