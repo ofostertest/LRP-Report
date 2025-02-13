@@ -40,23 +40,39 @@ jobs:
           wget https://chromedriver.storage.googleapis.com/$CHROME_DRIVER_VERSION/chromedriver_linux64.zip
           unzip chromedriver_linux64.zip
           sudo mv chromedriver /usr/local/bin/
+
+      - name: Set up Xvfb (Virtual Display)
+        run: |
+          sudo apt-get install -y xvfb
+          Xvfb :99 &  # Start the virtual display
+          export DISPLAY=:99     
           
       - name: Run Unborn Script
         run: | 
           python3 Unborn.py
+        env:
+          DISPLAY: :99
 
       - name: Run Steers1 Script
         run: |
-          python3 Steers1.py  
+          python3 Steers1.py
+        env:
+          DISPLAY: :99
 
       - name: Run Steers2 Script
         run: |
           python3 Steers2.py
+        env:
+          DISPLAY: :99
 
       - name: Run Heifers1 Script
         run: |
           python3 Heifers1.py
+        env:
+          DISPLAY: :99
 
       - name: Run Heifers2 Script
         run: |
-          python3 Heifers2.py 
+          python3 Heifers2.py
+        env:
+          DISPLAY: :99
