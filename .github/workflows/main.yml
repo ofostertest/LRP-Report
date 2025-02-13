@@ -49,7 +49,11 @@ jobs:
 
       - name: Install Matching ChromeDriver
         run: |
-          CHROMEDRIVER_VERSION=$(curl -s "https://googlechromelabs.github.io/chrome-for-testing/latest-patch-versions-per-build.json" | jq -r --arg version "$CHROME_VERSION" '.[$version]')
+          CHROMEDRIVER_VERSION=$(curl -s "https://googlechromelabs.github.io/chrome-for-testing/known-good-versions-with-downloads.json" | jq -r '.versions[] | select(.version | startswith(env.CHROME_VERSION)) | .version' | head -n 1)
+          if [ -z "$CHROMEDRIVER_VERSION" ]; then
+            echo "Error: Failed to find a matching ChromeDriver version for Chrome $CHROME_VERSION"
+            exit 1
+          fi
           echo "Installing ChromeDriver version: $CHROMEDRIVER_VERSION"
           wget -q "https://storage.googleapis.com/chrome-for-testing-public/${CHROMEDRIVER_VERSION}/linux64/chromedriver-linux64.zip"
           unzip chromedriver-linux64.zip
@@ -61,7 +65,7 @@ jobs:
         run: |
           google-chrome --version
           chromedriver --version
-
+          
       - name: Run Unborn Script
         run: | 
           python3 Unborn.py
