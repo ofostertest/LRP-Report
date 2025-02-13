@@ -25,6 +25,9 @@ jobs:
         run: |
           ps aux | grep Xvfb || echo "Xvfb is NOT running!"
 
+      - name: Ensure DISPLAY variable is set
+        run: echo "DISPLAY=:99" >> $GITHUB_ENV
+
       - name: Check DISPLAY variable
         run: echo "DISPLAY=$DISPLAY"
 
