@@ -37,7 +37,9 @@ def get_sheets_service():
 	creds = authenticate_google_sheets()
 	service = build('sheets', 'v4', credentials=creds)
 	return service
-	
+
+chrome_version = subprocess.check_output(["google-chrome", "--version"]).decode("utf-8").strip().split(" ")[-1].split(".")[0]
+
 chrome_options = Options()
 chrome_options.add_argument('--headless')
 chrome_options.add_argument('--no-sandbox')
