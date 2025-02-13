@@ -15,6 +15,8 @@ import pandas as pd
 import subprocess
 import time
 import logging
+import base64
+import json
 
 logging.basicConfig(level=logging.DEBUG)
 logging.debug("Starting Unborn.py")
@@ -28,7 +30,8 @@ if not CREDENTIALS_B64:
 	raise EnvironmentError("Google OAuth credentials not found in GitHub secrets!")
 credentials_json = base64.b64decode(CREDENTIALS_B64).decode('utf-8')
 credentials = json.loads(credentials_json)
-print("Credentials successfully loaded!")
+logging.debug("Credentials successfully loaded!")
+
 TOKEN_PATH = 'token.json'
 SCOPES = ['https://www.googleapis.com/auth/spreadsheets']
 
