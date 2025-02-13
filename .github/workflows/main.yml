@@ -10,8 +10,12 @@ jobs:
     runs-on: ubuntu-latest
 
     steps:
-      - name: Checkout Repository
-        uses: actions/checkout@v2
+      - name: Set up Xvfb
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y xvfb
+          export DISPLAY=:99
+          Xvfb :99 -ac &
 
       - name: Set Up Python
         uses: actions/setup-python@v3
@@ -41,12 +45,6 @@ jobs:
           unzip chromedriver_linux64.zip
           sudo mv chromedriver /usr/local/bin/
 
-      - name: Set up Xvfb (Virtual Display)
-        run: |
-          sudo apt-get update
-          sudo apt-get install -y xvfb
-          export DISPLAY=:99   
-          
       - name: Run Unborn Script
         run: | 
           python3 Unborn.py
