@@ -50,8 +50,13 @@ jobs:
       - name: Get Correct ChromeDriver Version
         run: |
           CHROME_VERSION=$(google-chrome --version | awk '{print $3}' | cut -d '.' -f 1)
-          CHROMEDRIVER_VERSION=$(curl -s "https://googlechromelabs.github.io/chrome-for-testing/latest-patch-versions-per-build.json" | jq -r --arg version "$CHROME_VERSION" '.[$version]')
           echo "Detected Chrome version: $CHROME_VERSION"
+          CHROMEDRIVER_VERSION=$(curl -s "https://googlechromelabs.github.io/chrome-for-testing/known-good-versions-with-downloads.json" | jq -r --arg version "$CHROME_VERSION" '.versions[] | select(.version | startswith($version)) | .version' | head -n 1)
+          if [ -z "$CHROMEDRIVER_VERSION" ]; then
+            echo "Error: Could not find a matching ChromeDriver version for Chrome $CHROME_VERSION"
+            exit 1
+          fi
+
           echo "Matching ChromeDriver version: $CHROMEDRIVER_VERSION"
           wget -q "https://storage.googleapis.com/chrome-for-testing-public/${CHROMEDRIVER_VERSION}/linux64/chromedriver-linux64.zip"
           unzip chromedriver-linux64.zip
