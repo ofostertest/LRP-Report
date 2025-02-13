@@ -69,10 +69,6 @@ jobs:
           echo "Google Chrome Version: $(google-chrome --version)"
           echo "ChromeDriver Version: $(chromedriver --version)"
 
-      - name: Start Chrome in Headless Mode
-        run: |
-          google-chrome --headless --disable-gpu --no-sandbox --disable-dev-shm-usage --dump-dom https://www.google.com || echo "Chrome failed to run"
-
       - name: Check Chrome & ChromeDriver
         run: |
           echo "Chrome version: $(google-chrome --version)"
