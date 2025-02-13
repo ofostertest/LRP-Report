@@ -14,6 +14,7 @@ import os
 import gspread
 import pandas as pd
 import time
+import logging
 
 chrome_options = Options()
 chrome_options.add_argument("--headless")
@@ -43,6 +44,7 @@ def get_sheets_service():
 	service = build('sheets', 'v4', credentials=creds)
 	return service
 
+logging.basicConfig(level=logging.DEBUG)
 service = Service(ChromeDriverManager().install())
 driver = webdriver.Chrome(service=service, options=chrome_options)
 
