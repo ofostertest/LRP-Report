@@ -86,8 +86,8 @@ jobs:
         run: |
           google-chrome --headless --disable-gpu --no-sandbox --dump-dom https://www.google.com || echo "Chrome failed to start"
 
-      - name: Create credentials.json from secret
-        run: echo '${{ secrets.GOOGLE_CREDENTIALS }}' > credentials.json
+      - name: Create credentials.json from Secret
+        run: echo "${{ secrets.GOOGLE_OAUTH_CREDENTIALS_B64 }}" | base64 --decode > credentials.json
         shell: bash
 
       - name: Debug Credentials Secret
