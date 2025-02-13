@@ -39,12 +39,7 @@ jobs:
       - name: Install dependencies
         run: |
           python3 -m pip install --upgrade pip
-          pip install selenium google-auth google-auth-oauthlib google-auth-httplib2 google-api-python-client gspread openpyxl pandas webdriver_manager
-
-      - name: Set up credentials for Google API
-        run: echo "$GOOGLE_CREDENTIALS" > credentials.json
-        env:
-          GOOGLE_CREDENTIALS: ${{ secrets.GOOGLE_CREDENTIALS }}    
+          pip install selenium google-auth google-auth-oauthlib google-auth-httplib2 google-api-python-client gspread openpyxl pandas webdriver_manager    
 
       - name: Install Google Chrome
         run: |
@@ -92,7 +87,7 @@ jobs:
           google-chrome --headless --disable-gpu --no-sandbox --dump-dom https://www.google.com || echo "Chrome failed to start"
 
       - name: Create credentials.json from secret
-        run: echo '${{ secrets.GOOGLE_OAUTH_CREDENTIALS }}' > credentials.json
+        run: echo '${{ secrets.GOOGLE_CREDENTIALS }}' > credentials.json
         shell: bash
           
       - name: Run Unborn Script
