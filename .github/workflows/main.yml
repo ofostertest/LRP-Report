@@ -12,13 +12,6 @@ jobs:
     steps:
       - name: Check out repository
         uses: actions/checkout@v2
-        
-      - name: Set up Xvfb
-        run: |
-          sudo apt-get update
-          sudo apt-get install -y xvfb
-          export DISPLAY=:99
-          Xvfb :99 -ac &
 
       - name: Set Up Python
         uses: actions/setup-python@v3
@@ -29,6 +22,13 @@ jobs:
         run: |
           python3 -m pip install --upgrade pip
           pip install selenium google-auth google-auth-oauthlib google-auth-httplib2 google-api-python-client gspread openpyxl pandas webdriver_manager
+
+      - name: Set up Xvfb
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y xvfb
+          export DISPLAY=:99
+          Xvfb :99 -ac &
 
       - name: Set up credentials for Google API
         run: echo "$GOOGLE_CREDENTIALS" > credentials.json
