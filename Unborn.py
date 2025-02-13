@@ -23,7 +23,12 @@ logging.debug("Setting up ChromeDriver options")
 
 os.environ["DISPLAY"] = ":99"
 
-CREDENTIALS_PATH = 'credentials.json'
+CREDENTIALS_B64 = os.getenv("GOOGLE_CREDENTIALS_B64")
+if not CREDENTIALS_B64:
+	raise EnvironmentError("Google OAuth credentials not found in GitHub secrets!")
+credentials_json = base64.b64decode(CREDENTIALS_B64).decode('utf-8')
+credentials = json.loads(credentials_json)
+print("Credentials successfully loaded!")
 TOKEN_PATH = 'token.json'
 SCOPES = ['https://www.googleapis.com/auth/spreadsheets']
 
@@ -35,7 +40,7 @@ def get_google_sheets_service():
 		if creds and creds.expired and creds.refresh_token:
 			creds.refresh(Request())
 		else:
-			flow = InstalledAppFlow.from_client_secrets_file(CREDENTIALS_PATH, SCOPES)
+			flow = InstalledAppFlow.from_client_secrets_file(CREDENTIALS_B64, SCOPES)
 			creds = flow.run_local_server(port=0, access_type='offline', prompt='consent')
 		with open(TOKEN_PATH, "w") as token:
 			token.write(creds.to_json())
