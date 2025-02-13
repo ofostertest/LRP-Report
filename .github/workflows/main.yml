@@ -91,34 +91,41 @@ jobs:
         shell: bash
 
       - name: Debug Secret Access
-        run: echo "GOOGLE_OAUTH_CREDENTIALS_B64=${{ secrets.GOOGLE_OAUTH_CREDENTIALS_B64 }}"
-          
+        run: |
+          echo "Checking GOOGLE_OAUTH_CREDENTIALS_B64"
+          echo ${{ secrets.GOOGLE_OAUTH_CREDENTIALS_B64 }} | base64 --decode
+ 
       - name: Run Unborn Script
         run: | 
           python3 Unborn.py
         env:
           DISPLAY: :99
+          GOOGLE_OAUTH_CREDENTIALS_B64: ${{ secrets.GOOGLE_OAUTH_CREDENTIALS_B64 }}
 
       - name: Run Steers1 Script
         run: |
           python3 Steers1.py
         env:
           DISPLAY: :99
+          GOOGLE_OAUTH_CREDENTIALS_B64: ${{ secrets.GOOGLE_OAUTH_CREDENTIALS_B64 }}
 
       - name: Run Steers2 Script
         run: |
           python3 Steers2.py
         env:
           DISPLAY: :99
+          GOOGLE_OAUTH_CREDENTIALS_B64: ${{ secrets.GOOGLE_OAUTH_CREDENTIALS_B64 }}
 
       - name: Run Heifers1 Script
         run: |
           python3 Heifers1.py
         env:
           DISPLAY: :99
+          GOOGLE_OAUTH_CREDENTIALS_B64: ${{ secrets.GOOGLE_OAUTH_CREDENTIALS_B64 }}
 
       - name: Run Heifers2 Script
         run: |
           python3 Heifers2.py
         env:
           DISPLAY: :99
+          GOOGLE_OAUTH_CREDENTIALS_B64: ${{ secrets.GOOGLE_OAUTH_CREDENTIALS_B64 }}
