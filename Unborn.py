@@ -42,13 +42,14 @@ def get_sheets_service():
 chrome_version = subprocess.check_output(["google-chrome", "--version"]).decode("utf-8").strip().split(" ")[-1].split(".")[0]
 
 chrome_options = Options()
-chrome_options.add_argument('--headless')
-chrome_options.add_argument('--no-sandbox')
-chrome_options.add_argument('--disable-dev-shm-usage')
+chrome_options.add_argument("--headless")
+options.add_argument("--disable-gpu")
+chrome_options.add_argument("--no-sandbox")
+chrome_options.add_argument("--disable-dev-shm-usage")
 
 service = Service(ChromeDriverManager().install())
 print("Initializing driver...")
-driver = webdriver.Chrome(service=Service(ChromeDriverManager().install()), options=chrome_options)
+driver = webdriver.Chrome(service=Service(ChromeDriverManager(version=chrome_version).install()), options=options)
 print("Driver initialized successfully")
 
 driver.get("https://public.rma.usda.gov/livestockreports/LRPReport.aspx")
