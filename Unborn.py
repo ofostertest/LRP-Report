@@ -14,7 +14,6 @@ import os
 import gspread
 import pandas as pd
 import time
-import logging
 
 CREDENTIALS_PATH = 'credentials.json'
 TOKEN_PATH = 'token.json'
@@ -38,9 +37,7 @@ def get_sheets_service():
 	creds = authenticate_google_sheets()
 	service = build('sheets', 'v4', credentials=creds)
 	return service
-
-logging.basicConfig(level=logging.DEBUG)
-
+	
 chrome_options = Options()
 chrome_options.add_argument('--headless')
 chrome_options.add_argument('--no-sandbox')
