@@ -43,9 +43,9 @@ jobs:
 
       - name: Set up Xvfb (Virtual Display)
         run: |
+          sudo apt-get update
           sudo apt-get install -y xvfb
-          Xvfb :99 & 
-          export DISPLAY=:99     
+          export DISPLAY=:99   
           
       - name: Run Unborn Script
         run: | 
