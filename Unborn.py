@@ -15,6 +15,8 @@ import pandas as pd
 import subprocess
 import time
 
+os.environ["DISPLAY"] = ":99"
+
 CREDENTIALS_PATH = 'credentials.json'
 TOKEN_PATH = 'token.json'
 SCOPES = ['https://www.googleapis.com/auth/spreadsheets']
