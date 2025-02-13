@@ -86,6 +86,11 @@ jobs:
           which google-chrome || echo "Google Chrome not found!"
           which chromedriver || echo "ChromeDriver not found!"
         shell: bash
+
+      - name: Test Chrome Headless
+        run: |
+          google-chrome --headless --disable-gpu --no-sandbox --dump-dom https://www.google.com || echo "Chrome failed to start"
+
           
       - name: Run Unborn Script
         run: | 
