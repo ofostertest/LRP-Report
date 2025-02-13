@@ -23,12 +23,13 @@ jobs:
           python3 -m pip install --upgrade pip
           pip install selenium google-auth google-auth-oauthlib google-auth-httplib2 google-api-python-client gspread openpyxl pandas webdriver_manager
 
-      - name: Set up Xvfb
+      - name: Set up Xvfb for headless browser
         run: |
-          sudo apt-get update
           sudo apt-get install -y xvfb
+          Xvfb :99 -screen 0 1280x1024x24 &
+          sleep 5
           export DISPLAY=:99
-          Xvfb :99 -ac &
+          echo "Xvfb setup complete"
 
       - name: Set up credentials for Google API
         run: echo "$GOOGLE_CREDENTIALS" > credentials.json
