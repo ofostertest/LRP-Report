@@ -43,6 +43,9 @@ logging.debug("Credentials successfully loaded!")
 CREDENTIALS_PATH = 'credentials.json'
 with open(CREDENTIALS_PATH, 'w') as creds_file:
 	json.dump(credentials_dict, creds_file)
+
+credentials_json = base64.b64decode(CREDENTIALS_B64).decode('utf-8')
+logging.debug(f"Decoded credentials JSON: {credentials_json[:100]}...")
 	
 TOKEN_PATH = 'token.json'
 SCOPES = ['https://www.googleapis.com/auth/spreadsheets']
