@@ -29,7 +29,7 @@ CREDENTIALS_B64 = os.getenv("GOOGLE_OAUTH_CREDENTIALS_B64")
 if not CREDENTIALS_B64:
 	raise EnvironmentError("Google OAuth credentials not found in GitHub secrets!")
 credentials_json = base64.b64decode(CREDENTIALS_B64).decode('utf-8')
-credentials = json.loads(credentials_json)
+credentials_dict = json.loads(credentials_json)
 logging.debug("Credentials successfully loaded!")
 
 CREDENTIALS_PATH = 'credentials.json'
