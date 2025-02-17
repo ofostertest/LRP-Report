@@ -50,7 +50,7 @@ def get_google_sheets_service():
 	else:
 		flow = InstalledAppFlow.from_client_secrets_file(CREDENTIALS_PATH, SCOPES)
 		creds = flow.run_local_server(port=0, access_type='offline', prompt='consent')
-        with open(TOKEN_PATH, 'w') as token:
+	with open(TOKEN_PATH, 'w') as token:
 		token.write(creds.to_json())
 	return creds
 
