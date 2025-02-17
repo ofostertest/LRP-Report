@@ -25,7 +25,7 @@ logging.debug("Setting up ChromeDriver options")
 
 os.environ["DISPLAY"] = ":99"
 
-CREDENTIALS_B64 = os.getenv("GOOGLE_CREDENTIALS_B64")
+CREDENTIALS_B64 = os.getenv("GOOGLE_OAUTH_CREDENTIALS_B64")
 if not CREDENTIALS_B64:
 	raise EnvironmentError("Google OAuth credentials not found in GitHub secrets!")
 credentials_json = base64.b64decode(CREDENTIALS_B64).decode('utf-8')
