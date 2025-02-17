@@ -49,17 +49,36 @@ SCOPES = ['https://www.googleapis.com/auth/spreadsheets']
 
 def get_google_sheets_service():
 	creds = None
+    
 	if os.path.exists(TOKEN_PATH):
 		creds = Credentials.from_authorized_user_file(TOKEN_PATH, SCOPES)
-
+		logging.debug("Token file found and loaded.")
+    
 	if not creds or not creds.valid:
-		if creds and creds.expired and creds.refresh_token:
-			creds.refresh(Request())
-	else:
-		flow = InstalledAppFlow.from_client_secrets_file(CREDENTIALS_PATH, SCOPES)
-		creds = flow.run_local_server(port=0, access_type='offline', prompt='consent')
-	with open(TOKEN_PATH, 'w') as token:
-		token.write(creds.to_json())
+		try:
+			if creds and creds.expired and creds.refresh_token:
+				creds.refresh(Request())
+				logging.debug("Credentials refreshed successfully.")
+			else:
+				logging.debug("Token file missing or invalid. Initiating OAuth flow.")
+				flow = InstalledAppFlow.from_client_secrets_file(CREDENTIALS_PATH, SCOPES)
+				creds = flow.run_local_server(port=0, access_type='offline', prompt='consent')
+            
+			if creds:
+				with open(TOKEN_PATH, "w") as token:
+					token.write(creds.to_json())
+					logging.debug("New token file created and saved.")
+			else:
+				logging.error("OAuth flow failed to produce valid credentials.")
+				raise Exception("Failed to obtain valid Google Sheets credentials.")
+
+		except Exception as e:
+				logging.error(f"Error during OAuth flow: {e}")
+				raise
+    
+	if not creds:
+		raise Exception("Google Sheets credentials could not be established.")
+    
 	return creds
 
 def get_sheets_service():
