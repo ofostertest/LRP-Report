@@ -37,16 +37,24 @@ SCOPES = ['https://www.googleapis.com/auth/spreadsheets']
 
 def get_google_sheets_service():
 	creds = None
+	credentials_path = "credentials.json"
+	if not os.path.exists(credentials_path):
+		with open(credentials_path, "w") as creds_file:
+			creds_file.write(base64.b64decode(CREDENTIALS_B64).decode("utf-8"))
+
 	if os.path.exists(TOKEN_PATH):
 		creds = Credentials.from_authorized_user_file(TOKEN_PATH, SCOPES)
+
 	if not creds or not creds.valid:
 		if creds and creds.expired and creds.refresh_token:
 			creds.refresh(Request())
 		else:
-			flow = InstalledAppFlow.from_client_secrets_file(CREDENTIALS_B64, SCOPES)
+			flow = InstalledAppFlow.from_client_secrets_file(credentials_path, SCOPES)
 			creds = flow.run_local_server(port=0, access_type='offline', prompt='consent')
+
 		with open(TOKEN_PATH, "w") as token:
 			token.write(creds.to_json())
+
 	return creds
 
 def get_sheets_service():
