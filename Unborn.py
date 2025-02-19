@@ -46,21 +46,20 @@ def get_google_sheets_service():
 
 	if not creds or not creds.valid:
 		if creds and creds.expired and creds.refresh_token:
+			logging.debug("Refreshing Google OAuth token...")
 			creds.refresh(Request())
 	else:
+		logging.debug("Initiating new OAuth flow...")
 		flow = InstalledAppFlow.from_client_secrets_file(CREDENTIALS_PATH, SCOPES)
 		creds = flow.run_local_server(port=0, access_type='offline', prompt='consent')
+		
 	with open(TOKEN_PATH, 'w') as token:
 		token.write(creds.to_json())
+		
 	return creds
 
 def get_sheets_service():
 	creds = get_google_sheets_service()
-	service = build('sheets', 'v4', credentials=creds)
-	return service
-
-def get_sheets_service():
-	creds = authenticate_google_sheets()
 	service = build('sheets', 'v4', credentials=creds)
 	return service
 	
