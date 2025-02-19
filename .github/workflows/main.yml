@@ -106,6 +106,8 @@ jobs:
         env:
           GOOGLE_OAUTH_CREDENTIALS_B64: ${{ secrets.GOOGLE_OAUTH_CREDENTIALS_B64 }}
 
+      - name: Create token.json from GitHub Secret
+        run: echo "${{ secrets.GOOGLE_OAUTH_TOKEN_B64 }}" | base64 --decode > token.json
  
       - name: Run Unborn Script
         run: | 
