@@ -55,6 +55,9 @@ def get_google_sheets_service():
 		
 	with open(TOKEN_PATH, 'w') as token:
 		token.write(creds.to_json())
+	updated_token_b64 = base64.b64encode(updated_token.encode('utf-8')).decode('utf-8')
+
+	print(f"Updated token: {updated_token_b64}")
 		
 	return creds
 
