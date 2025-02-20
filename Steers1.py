@@ -105,6 +105,7 @@ try:
 			cols = row.find_elements(By.TAG_NAME,"td")
 			if len(cols)>13:
 				selected_data.append([
+					cols[13].text,
 					cols[8].text,
 					cols[12].text
 				])
