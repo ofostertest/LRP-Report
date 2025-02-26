@@ -104,8 +104,8 @@ try:
         for i, row in enumerate(rows,start=1):
                 if i in selected_rows:
                         cols = row.find_elements(By.TAG_NAME,"td")   
-                        if len(cols)>13:
-				raw_price_8 = cols[8].text 
+			if len(cols)>13:
+				raw_price_8 = cols[8].text
 				raw_price_12 = cols[12].text
 				
 				def format_price(price_text):
