@@ -93,14 +93,14 @@ file_path = 'LRP-Spreadsheet.xlsx'
 body = driver.find_element(By.TAG_NAME, 'body')
 
 try:
-        table = WebDriverWait(driver,20).until(  
-                EC.presence_of_element_located((By.XPATH, "//table[@id='_ctl0_cphContent_tblContent']"))
-        )
-        rows = table.find_elements(By.TAG_NAME,"tr")
+	table = WebDriverWait(driver,20).until(  
+		EC.presence_of_element_located((By.XPATH, "//table[@id='_ctl0_cphContent_tblContent']"))
+	)
+	rows = table.find_elements(By.TAG_NAME,"tr")
                  
-        selected_rows = [7, 19, 31, 43, 55, 67, 86, 98, 110]
-        selected_data = []
-
+	selected_rows = [7, 19, 31, 43, 55, 67, 86, 98, 110]
+	selected_data = []
+	
 	for i, row in enumerate(rows,start=1):
 		if i in selected_rows:
 			cols = row.find_elements(By.TAG_NAME,"td")
