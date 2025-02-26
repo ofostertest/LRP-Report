@@ -97,13 +97,13 @@ try:
 		EC.presence_of_element_located((By.XPATH, "//table[@id='_ctl0_cphContent_tblContent']"))
 	)
 	rows = table.find_elements(By.TAG_NAME,"tr")
-	
+
 	selected_rows = [7, 19, 31, 43, 55, 67, 86, 98, 110]
 	selected_data = []
-                
+
 	for i, row in enumerate(rows,start=1):
 		if i in selected_rows:
-			cols = row.find_elements(By.TAG_NAME,"td")   
+			cols = row.find_elements(By.TAG_NAME,"td")
 			if len(cols)>13:
 				raw_price_8 = cols[8].text
 				raw_price_12 = cols[12].text
@@ -114,7 +114,7 @@ try:
                 
 				formatted_price_8 = format_price(raw_price_8)
 				formatted_price_12 = format_price(raw_price_12)
-
+				
 				selected_data.append([
 					cols[13].text,
 					formatted_price_8,
@@ -122,19 +122,18 @@ try:
 				])
 				
 	print(f"Selected Data: {selected_data}")
-	
+
 	service = build("sheets","v4", credentials=get_google_sheets_service())
 	
 	spreadsheet_id = '1eFn_RVcCw3MmdLRGASrYwoCbc1UPfFNVqq1Fbz2mvYg'
 	range_name = 'Sheet1!C15'
 	sheet = service.spreadsheets()
 	update_values = selected_data
-	request = sheet.values().update(spreadsheetId=spreadsheet_id,range=range_name,valueInputOption="RAW",body={"values": update_values}).execute()		
+	request = sheet.values().update(spreadsheetId=spreadsheet_id,range=range_name,valueInputOption="RAW",body={"values": update_values}).execute()
 	
-	print("Data successfully saved to Google Sheets!")  
+	print("Data successfully saved to Google Sheets!") 
 
 except Exception as e:
 	print(f"Error extracting table data: {e}")
 
 driver.quit()
-
