@@ -101,9 +101,9 @@ try:
         selected_rows = [7, 19, 31, 43, 55, 67, 86, 98, 110]
         selected_data = []
                 
-        for i, row in enumerate(rows,start=1):
-                if i in selected_rows:
-                        cols = row.find_elements(By.TAG_NAME,"td")   
+	for i, row in enumerate(rows,start=1):
+		if i in selected_rows:
+			cols = row.find_elements(By.TAG_NAME,"td")   
 			if len(cols)>13:
 				raw_price_8 = cols[8].text
 				raw_price_12 = cols[12].text
@@ -131,10 +131,10 @@ try:
 	update_values = selected_data
 	request = sheet.values().update(spreadsheetId=spreadsheet_id,range=range_name,valueInputOption="RAW",body={"values": update_values}).execute()		
 	
-        print("Data successfully saved to Google Sheets!")  
+	print("Data successfully saved to Google Sheets!")  
 
 except Exception as e:
-        print(f"Error extracting table data: {e}")
+	print(f"Error extracting table data: {e}")
 
 driver.quit()
 
