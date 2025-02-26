@@ -97,7 +97,7 @@ try:
 	)
 	rows = table.find_elements(By.TAG_NAME,"tr")
 
-	selected_rows = [7, 19, 31, 43, 55, 67, 82, 94, 106]
+	selected_rows = [7, 19, 31, 43, 55, 67, 86, 98, 110]
 	selected_data = []
 
 	for i, row in enumerate(rows,start=1):
