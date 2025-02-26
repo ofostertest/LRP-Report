@@ -121,7 +121,7 @@ try:
 					formatted_price_12
 				])
 				
-        print(f"Selected Data: {selected_data}")
+	print(f"Selected Data: {selected_data}")
                 
         service = build("sheets","v4", credentials=get_google_sheets_service())
                 
