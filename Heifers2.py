@@ -121,6 +121,16 @@ try:
 					formatted_price_12
 				])
 				
+	print(f"Selected Data: {selected_data}")
+	
+	service = build("sheets","v4", credentials=get_google_sheets_service())
+	
+	spreadsheet_id = '1eFn_RVcCw3MmdLRGASrYwoCbc1UPfFNVqq1Fbz2mvYg'
+	range_name = 'Sheet1!C15'
+	sheet = service.spreadsheets()
+	update_values = selected_data
+	request = sheet.values().update(spreadsheetId=spreadsheet_id,range=range_name,valueInputOption="RAW",body={"values": update_values}).execute()		
+	
         print("Data successfully saved to Google Sheets!")  
 
 except Exception as e:
