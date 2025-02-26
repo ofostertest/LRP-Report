@@ -114,7 +114,7 @@ try:
         service = build("sheets","v4", credentials=get_google_sheets_service())
                 
         spreadsheet_id = '1eFn_RVcCw3MmdLRGASrYwoCbc1UPfFNVqq1Fbz2mvYg'
-        range_name = 'Sheet1!C48'
+        range_name = 'Sheet1!C50'
         sheet = service.spreadsheets()
         update_values = selected_data
         request = sheet.values().update(spreadsheetId=spreadsheet_id,range=range_name,valueInputOption="RAW",body={"values": update_values}).execute()
