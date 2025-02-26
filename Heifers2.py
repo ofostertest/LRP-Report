@@ -11,6 +11,7 @@ from google.auth.transport.requests import Request
 from googleapiclient.discovery import build
 import openpyxl
 import os
+import re
 import gspread
 import pandas as pd
 import time
@@ -104,21 +105,22 @@ try:
                 if i in selected_rows:
                         cols = row.find_elements(By.TAG_NAME,"td")   
                         if len(cols)>13:
-                                selected_data.append([
-					cols[13].text,
-                                        cols[8].text,
-                                        cols[12].text
-                                ])
-        print(f"Selected Data: {selected_data}")
+				raw_price_8 = cols[8].text 
+				raw_price_12 = cols[12].text
+				
+				def format_price(price_text):
+					match = re.search(r'(\$\d{1,6}(?:\.\d{0,2})?)', price_text)
+					return match.group() if match else price_text
                 
-        service = build("sheets","v4", credentials=get_google_sheets_service())
-                
-        spreadsheet_id = '1eFn_RVcCw3MmdLRGASrYwoCbc1UPfFNVqq1Fbz2mvYg'
-        range_name = 'Sheet1!C50'
-        sheet = service.spreadsheets()
-        update_values = selected_data
-        request = sheet.values().update(spreadsheetId=spreadsheet_id,range=range_name,valueInputOption="RAW",body={"values": update_values}).execute()
+				formatted_price_8 = format_price(raw_price_8)
+				formatted_price_12 = format_price(raw_price_12)
 
+				selected_data.append([
+					cols[13].text,
+					formatted_price_8,
+					formatted_price_12
+				])
+				
         print("Data successfully saved to Google Sheets!")  
 
 except Exception as e:
