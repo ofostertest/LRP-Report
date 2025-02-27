@@ -4,9 +4,7 @@ on:
   schedule:
     - cron: "30 21 * * *"
     - cron: "0 22 * * *" 
-    - cron: "30 22 * * *"
-    - cron: "0 23 * * *"
-    - cron: "30 23 * * *"
+    
   workflow_dispatch:  
 
 jobs:
@@ -144,6 +142,40 @@ jobs:
       - name: Run Heifers2 Script
         run: |
           python3 Heifers2.py
+        env:
+          DISPLAY: :99
+          GOOGLE_OAUTH_CREDENTIALS_B64: ${{ secrets.GOOGLE_OAUTH_CREDENTIALS_B64 }}
+
+  retry-run:
+    needs: run-script
+    if: failure()
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v2
+
+      - name: Wait Before Retrying
+        run: |
+          echo "Waiting 30 minutes before retry..."
+          sleep 1800
+
+      - name: Retry Running Scripts (Max 5 Attempts)
+        run: |
+          MAX_ATTEMPTS=5
+          ATTEMPT=1
+
+          while [ $ATTEMPT -le $MAX_ATTEMPTS ]; do
+            echo "Attempt $ATTEMPT of $MAX_ATTEMPTS..."
+            python3 Unborn.py && python3 Steers1.py && python3 Steers2.py && python3 Heifers1.py && python3 Heifers2.py && break
+            echo "Attempt $ATTEMPT failed. Retrying in 30 minutes..."
+            sleep 1800
+            ATTEMPT=$((ATTEMPT+1))
+          done
+
+          if [ $ATTEMPT -gt $MAX_ATTEMPTS ]; then
+            echo "All retry attempts failed."
+            exit 1
+          fi
         env:
           DISPLAY: :99
           GOOGLE_OAUTH_CREDENTIALS_B64: ${{ secrets.GOOGLE_OAUTH_CREDENTIALS_B64 }}
