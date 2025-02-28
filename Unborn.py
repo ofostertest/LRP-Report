@@ -164,9 +164,17 @@ try:
 	
 	print("Data successfully saved to Google Sheets!")
 
-	data = sheet.get_all_values()
 	columns_to_watch = [3, 4, 5, 6, 7]
+	
+	result = (
+		service.spreadsheets()
+		.values()
+		.get(spreadsheetId=spreadsheet_id, range=sheet_name)
+		.execute()
+	)
 
+	data = result.get("values", [])
+	
 	changes_detected = any(any(row[i] for i in columns_to_watch) for row in data)
 	if changes_detected:
 		now = datetime.now().strftime("%d-%m-%Y")
