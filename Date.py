@@ -1,3 +1,11 @@
+from datetime import datetime
+import gspread
+from google.oauth2.service_account import Credentials
+
+SCOPES = ["https://www.googleapis.com/auth/spreadsheets"]
+creds = Credentials.from_service_account_file("credentials.json", scopes=SCOPES)
+client = gspread.authorize(creds) 
+
 service = build("sheets", "v4", credentials=get_google_sheets_service())
         
 	spreadsheet_id = '1eFn_RVcCw3MmdLRGASrYwoCbc1UPfFNVqq1Fbz2mvYg'
