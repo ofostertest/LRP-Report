@@ -85,11 +85,6 @@ def update_google_sheet(selected_data):
 		
 		print(f"Updated timestamp in D1: {now}")
 
-try:
-	selected_data = [["Row 1, Col 1", "Row 1, Col 2"], ["Row 2, Col 1", "Row 2, Col 2"]]
-
-	update_google_sheet(selected_data)
-
 except Exception as e:
 	print(f"Error extracting table data: {e}")
 		
