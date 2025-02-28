@@ -169,7 +169,7 @@ try:
 	changes_detected = any(any(row[i] for i in columns_to_watch) for row in data)
 	if changes_detected:
 		now = datetime.now().strftime("%Y-%m-%d")
-		sheet.update_acell("D1", now
+		sheet.update_acell("D1", now)
 		print(f"Updated timestamp in D1: {now}")
 
 except Exception as e:
