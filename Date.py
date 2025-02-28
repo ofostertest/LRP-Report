@@ -84,8 +84,5 @@ def update_google_sheet(selected_data):
 		).execute()
 		
 		print(f"Updated timestamp in D1: {now}")
-
-except Exception as e:
-	print(f"Error extracting table data: {e}")
 		
 logging.debug("Script finished successfully")
