@@ -84,7 +84,7 @@ driver.get("https://public.rma.usda.gov/livestockreports/LRPReport.aspx")
 def select_dropdown_by_index(dropdown_id, index):
 	try:
 		dropdown_element = WebDriverWait(driver, 10).until(
-            		EC.presence_of_element_located((By.ID, dropdown_id))
+			EC.presence_of_element_located((By.ID, dropdown_id))
 		)
 		dropdown = Select(dropdown_element)
 		dropdown.select_by_index(index)
@@ -125,16 +125,16 @@ body = driver.find_element(By.TAG_NAME, 'body')
 try:
 	table = WebDriverWait(driver, 20).until(
 		EC.presence_of_element_located((By.XPATH, "//table[@id='_ctl0_cphContent_tblContent']"))
-    	)
+	)
 	rows = table.find_elements(By.TAG_NAME, "tr")
 
 	selected_rows = [7, 19, 31, 43, 55, 67, 86, 98, 110]
 	selected_data = []
 
 	for i, row in enumerate(rows,start=1):
-                if i in selected_rows:
-                        cols = row.find_elements(By.TAG_NAME,"td")   
-                        if len(cols)>13:
+		if i in selected_rows:
+			cols = row.find_elements(By.TAG_NAME,"td")   
+			if len(cols)>13:
 		if i in selected_rows:
 			cols = row.find_elements(By.TAG_NAME,"td")   
 			if len(cols)>13:
