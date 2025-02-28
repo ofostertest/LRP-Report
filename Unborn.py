@@ -158,6 +158,7 @@ try:
         
 	spreadsheet_id = '1eFn_RVcCw3MmdLRGASrYwoCbc1UPfFNVqq1Fbz2mvYg'
 	range_name = 'Sheet1!C4'
+	sheet_name = "Sheet1"
 	sheet = service.spreadsheets()
 	update_values = selected_data
 	request = sheet.values().update(spreadsheetId=spreadsheet_id,range=range_name,valueInputOption="RAW",body={"values": update_values}).execute()
