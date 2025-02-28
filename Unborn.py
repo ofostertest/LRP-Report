@@ -8,7 +8,6 @@ from google.oauth2.credentials import Credentials
 from google_auth_oauthlib.flow import InstalledAppFlow
 from google.auth.transport.requests import Request
 from googleapiclient.discovery import build
-from datetime import datetime
 import openpyxl
 import os
 import re
@@ -37,7 +36,7 @@ logging.debug("Credentials successfully loaded!")
 CREDENTIALS_PATH = 'credentials.json'
 with open(CREDENTIALS_PATH, 'w') as creds_file:
 	json.dump(credentials_dict, creds_file)
-	
+
 TOKEN_PATH = 'token.json'
 SCOPES = ['https://www.googleapis.com/auth/spreadsheets']
 
@@ -54,20 +53,20 @@ def get_google_sheets_service():
 		logging.debug("Initiating new OAuth flow...")
 		flow = InstalledAppFlow.from_client_secrets_file(CREDENTIALS_PATH, SCOPES)
 		creds = flow.run_local_server(port=0, access_type='offline', prompt='consent')
-		
+
 	with open(TOKEN_PATH, 'w') as token:
 		token.write(creds.to_json())
 	updated_token_b64 = base64.b64encode(creds.to_json().encode('utf-8')).decode('utf-8')
 
 	print(f"Updated token: {updated_token_b64}")
-		
+
 	return creds
 
 def get_sheets_service():
 	creds = get_google_sheets_service()
 	service = build('sheets', 'v4', credentials=creds)
 	return service
-	
+
 chrome_options = Options()
 chrome_options.add_argument("--headless")
 chrome_options.add_argument("--disable-gpu")
@@ -133,16 +132,19 @@ try:
 	selected_data = []
 
 	for i, row in enumerate(rows,start=1):
+                if i in selected_rows:
+                        cols = row.find_elements(By.TAG_NAME,"td")   
+                        if len(cols)>13:
 		if i in selected_rows:
 			cols = row.find_elements(By.TAG_NAME,"td")   
 			if len(cols)>13:
 				raw_price_8 = cols[8].text 
 				raw_price_12 = cols[12].text
-				
+
 				def format_price(price_text):
 					match = re.search(r'(\$\d{1,6}(?:\.\d{0,2})?)', price_text)
 					return match.group() if match else price_text
-                
+
 				formatted_price_8 = format_price(raw_price_8)
 				formatted_price_12 = format_price(raw_price_12)
 
@@ -155,45 +157,17 @@ try:
 	print(f"Selected Data: {selected_data}")
 
 	service = build("sheets", "v4", credentials=get_google_sheets_service())
-        
+
 	spreadsheet_id = '1eFn_RVcCw3MmdLRGASrYwoCbc1UPfFNVqq1Fbz2mvYg'
-	sheet_name = "Sheet1"
 	range_name = 'Sheet1!C4'
-	
 	sheet = service.spreadsheets()
-	
 	update_values = selected_data
 	request = sheet.values().update(spreadsheetId=spreadsheet_id,range=range_name,valueInputOption="RAW",body={"values": update_values}).execute()
-	
+
 	print("Data successfully saved to Google Sheets!")
-
-	columns_to_watch = [3, 4, 5, 6, 7]
-	range_to_check = f"{sheet_name}!C4:G58"
-	
-	result = service.spreadsheets().values().get(
-		spreadsheetId=spreadsheet_id, 
-		range=range_to_check
-	).execute()
-
-	data = result.get("values", [])
-	
-	changes_detected = any(any(row[i] for i in columns_to_watch) for row in data)
-	if changes_detected:
-		now = datetime.now().strftime("%d-%m-%Y")
-		timestamp_range = f"{sheet_name}!D1"
-
-		service.spreadsheets().values().update(
-			spreadsheetId=spreadsheet_id,
-			range=timestamp_range,
-			valueInputOption="RAW",
-			body={"values": [[now]]}
-		).execute()
-		
-		print(f"Updated timestamp in D1: {now}")
 
 except Exception as e:
 	print(f"Error extracting table data: {e}")
 
 driver.quit()
 logging.debug("Script finished successfully")
-
