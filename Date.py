@@ -43,8 +43,8 @@ def get_sheets_service():
 	service = build('sheets', 'v4', credentials=creds)
 	return service
 
-service = build("sheets", "v4", credentials=get_google_sheets_service())
-        
+def update_google_sheet(selected_data):
+	service = get_sheets_service()
 	spreadsheet_id = '1eFn_RVcCw3MmdLRGASrYwoCbc1UPfFNVqq1Fbz2mvYg'
 	sheet_name = "Sheet1"
 	range_name = 'Sheet1!C4'
@@ -52,7 +52,12 @@ service = build("sheets", "v4", credentials=get_google_sheets_service())
 	sheet = service.spreadsheets()
 	
 	update_values = selected_data
-	request = sheet.values().update(spreadsheetId=spreadsheet_id,range=range_name,valueInputOption="RAW",body={"values": update_values}).execute()
+	sheet.values().update(
+		spreadsheetId=spreadsheet_id,
+		range=range_name,
+		valueInputOption="RAW",
+		body={"values": update_values}
+	).execute()
 	
 	print("Data successfully saved to Google Sheets!")
 
@@ -79,6 +84,11 @@ service = build("sheets", "v4", credentials=get_google_sheets_service())
 		).execute()
 		
 		print(f"Updated timestamp in D1: {now}")
+
+try:
+	selected_data = [["Row 1, Col 1", "Row 1, Col 2"], ["Row 2, Col 1", "Row 2, Col 2"]]
+
+	update_google_sheet(selected_data)
 
 except Exception as e:
 	print(f"Error extracting table data: {e}")
