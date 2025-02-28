@@ -39,7 +39,7 @@ def get_google_sheets_service():
 	return creds
 
 def get_sheets_service():
-	creds = authenticate_google_sheets()
+	creds = get_google_sheets_service()
 	service = build('sheets', 'v4', credentials=creds)
 	return service
 
