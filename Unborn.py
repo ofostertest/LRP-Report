@@ -163,6 +163,15 @@ try:
 	
 	print("Data successfully saved to Google Sheets!")
 
+	data = sheet.get_values()
+	columns_to_watch = [3, 4, 5, 6, 7]
+
+	changes_detected = any(any(row[i] for i in columns_to_watch) for row in data)
+	if changes_detected:
+		now = datetime.now().strftime("%Y-%m-%d)
+		sheet.update_acell("D1", now
+		print(f"Updated timestamp in D1: {now}")
+
 except Exception as e:
 	print(f"Error extracting table data: {e}")
 
