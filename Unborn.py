@@ -8,6 +8,7 @@ from google.oauth2.credentials import Credentials
 from google_auth_oauthlib.flow import InstalledAppFlow
 from google.auth.transport.requests import Request
 from googleapiclient.discovery import build
+from datetime import datetime
 import openpyxl
 import os
 import re
@@ -163,12 +164,12 @@ try:
 	
 	print("Data successfully saved to Google Sheets!")
 
-	data = sheet.get_values()
+	data = sheet.get_all_values()
 	columns_to_watch = [3, 4, 5, 6, 7]
 
 	changes_detected = any(any(row[i] for i in columns_to_watch) for row in data)
 	if changes_detected:
-		now = datetime.now().strftime("%Y-%m-%d")
+		now = datetime.now().strftime("%d-%m-%Y")
 		sheet.update_acell("D1", now)
 		print(f"Updated timestamp in D1: {now}")
 
