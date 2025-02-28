@@ -146,6 +146,13 @@ jobs:
           DISPLAY: :99
           GOOGLE_OAUTH_CREDENTIALS_B64: ${{ secrets.GOOGLE_OAUTH_CREDENTIALS_B64 }}
 
+      - name: Run Date Script
+        run: |
+          python3 Date.py
+        env:
+          DISPLAY: :99
+          GOOGLE_OAUTH_CREDENTIALS_B64: ${{ secrets.GOOGLE_OAUTH_CREDENTIALS_B64 }}    
+
   retry-run:
     needs: run-script
     if: failure()
