@@ -92,9 +92,5 @@ try:
 
 except Exception as e:
 	print(f"Error extracting table data: {e}")
-
-finally:
-	if driver:
-		driver.quit()
 		
 logging.debug("Script finished successfully")
