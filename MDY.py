@@ -79,25 +79,37 @@ driver = webdriver.Chrome(service=service, options=chrome_options)
 
 print("Chrome WebDriver successfully initialized!")
 
-driver.get("https://public.rma.usda.gov/livestockreports/LRPReport.aspx")
+try:
+    driver.get("https://public.rma.usda.gov/livestockreports/LRPReport.aspx")
+    logging.debug("Page loaded successfully.")
 
-dropdown_element = driver.find_element(By.TAG_NAME, "select")
+    dropdown_element = driver.find_element(By.TAG_NAME, "select")
+    logging.debug("Dropdown found.")
 
-select = Select(dropdown_element)
-options = [option.text for option in select.options]
+    select = Select(dropdown_element)
+    first_option = select.options[0].text  # Extract only the first option
+    logging.debug(f"Extracted first dropdown option: {first_option}")
 
-service = build("sheets", "v4", credentials=get_google_sheets_service())
+    service = build("sheets", "v4", credentials=get_google_sheets_service())
 
-spreadsheet_id = '1eFn_RVcCw3MmdLRGASrYwoCbc1UPfFNVqq1Fbz2mvYg'
-range_name = 'Sheet1!D1'
-sheet = service.spreadsheets()
-update_values = selected_data
-request = sheet.values().update(spreadsheetId=spreadsheet_id,range=range_name,valueInputOption="RAW",body={"values": update_values}).execute()
+    spreadsheet_id = '1eFn_RVcCw3MmdLRGASrYwoCbc1UPfFNVqq1Fbz2mvYg'
+    range_name = 'Sheet1!D1'
+    sheet = service.spreadsheets()
 
-print("Data successfully saved to Google Sheets!")
+    update_values = [[first_option]]
+
+    sheet.values().update(
+        spreadsheetId=spreadsheet_id,
+        range=range_name,
+        valueInputOption="RAW",
+        body={"values": update_values}
+    ).execute()
+
+    print("First dropdown option successfully saved to Google Sheets!")
 
 except Exception as e:
-	print(f"Error extracting table data: {e}")
+    print(f"Error extracting dropdown data: {e}")
 
-driver.quit()
-logging.debug("Script finished successfully")
+finally:
+    driver.quit()
+    logging.debug("Script finished successfully")
