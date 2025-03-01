@@ -148,7 +148,7 @@ jobs:
 
       - name: Run Date Script
         run: |
-          python3 Date.py
+          python3 MDY.py
         env:
           DISPLAY: :99
           GOOGLE_OAUTH_CREDENTIALS_B64: ${{ secrets.GOOGLE_OAUTH_CREDENTIALS_B64 }}    
