@@ -86,13 +86,18 @@ dropdown_element = driver.find_element(By.TAG_NAME, "select")
 select = Select(dropdown_element)
 options = [option.text for option in select.options]
 
+service = build("sheets", "v4", credentials=get_google_sheets_service())
+
 spreadsheet_id = '1eFn_RVcCw3MmdLRGASrYwoCbc1UPfFNVqq1Fbz2mvYg'
-sheet_name = "Sheet1"
-sheet = client.open_by_key(spreadsheet_id).worksheet(sheet_name)
+range_name = 'Sheet1!D1'
+sheet = service.spreadsheets()
+update_values = selected_data
+request = sheet.values().update(spreadsheetId=spreadsheet_id,range=range_name,valueInputOption="RAW",body={"values": update_values}).execute()
 
-sheet.update("D1", [["Dropdown Options"]] + [[option] for option in options])
+print("Data successfully saved to Google Sheets!")
 
-print("First dropdown data successfully uploaded to Google Sheets!")
+except Exception as e:
+	print(f"Error extracting table data: {e}")
 
 driver.quit()
 logging.debug("Script finished successfully")
