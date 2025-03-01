@@ -24,6 +24,12 @@ CREDENTIALS_PATH = 'credentials.json'
 TOKEN_PATH = 'token.json'
 SCOPES = ['https://www.googleapis.com/auth/spreadsheets']
 
+chrome_options = Options()
+chrome_options.add_argument("--headless") 
+chrome_options.add_argument("--no-sandbox")
+chrome_options.add_argument("--disable-dev-shm-usage")
+driver = webdriver.Chrome(service=Service("/usr/bin/chromedriver"), options=chrome_options)
+
 def get_google_sheets_service():
 	creds = None
 	if os.path.exists(TOKEN_PATH):
@@ -84,5 +90,7 @@ def update_google_sheet(selected_data):
 		).execute()
 		
 		print(f"Updated timestamp in D1: {now}")
-		
+
+driver.quit()
+
 logging.debug("Script finished successfully")
