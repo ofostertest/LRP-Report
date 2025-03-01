@@ -86,10 +86,10 @@ dropdown_element = driver.find_element(By.TAG_NAME, "select")
 select = Select(dropdown_element)
 options = [option.text for option in select.options]
 
+spreadsheet_id = '1eFn_RVcCw3MmdLRGASrYwoCbc1UPfFNVqq1Fbz2mvYg'
 sheet_name = "Sheet1"
 sheet = client.open_by_key(spreadsheet_id).worksheet(sheet_name)
 
-# Upload dropdown options
 sheet.update("D1", [["Dropdown Options"]] + [[option] for option in options])
 
 print("First dropdown data successfully uploaded to Google Sheets!")
