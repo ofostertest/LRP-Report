@@ -28,7 +28,7 @@ os.environ["DISPLAY"] = ":99"
 
 CREDENTIALS_B64 = os.getenv("GOOGLE_OAUTH_CREDENTIALS_B64")
 if not CREDENTIALS_B64:
-  raise EnvironmentError("Google OAuth credentials not found in GitHub secrets!")
+	raise EnvironmentError("Google OAuth credentials not found in GitHub secrets!")
 credentials_json = base64.b64decode(CREDENTIALS_B64).decode('utf-8')
 credentials_dict = json.loads(credentials_json)
 logging.debug("Credentials successfully loaded!")
@@ -41,25 +41,19 @@ TOKEN_PATH = 'token.json'
 SCOPES = ['https://www.googleapis.com/auth/spreadsheets']
 
 def get_google_sheets_service():
-	creds = None
-	if os.path.exists(TOKEN_PATH):
-		creds = Credentials.from_authorized_user_file(TOKEN_PATH, SCOPES)
+	credentials_json = base64.b64decode(os.getenv("GOOGLE_OAUTH_CREDENTIALS_B64")).decode('utf-8')
+	credentials_dict = json.loads(credentials_json)
 
-	if not creds or not creds.valid:
-		if creds and creds.expired and creds.refresh_token:
-			logging.debug("Refreshing Google OAuth token...")
-			creds.refresh(Request())
-	else:
-		logging.debug("Initiating new OAuth flow...")
-		flow = InstalledAppFlow.from_client_secrets_file(CREDENTIALS_PATH, SCOPES)
-		creds = flow.run_local_server(port=0, access_type='offline', prompt='consent')
+	creds = Credentials(
+		None,
+		refresh_token=os.getenv("GOOGLE_REFRESH_TOKEN"),
+		token_uri=credentials_dict['installed']['token_uri'],
+		client_id=credentials_dict['installed']['client_id'],
+		client_secret=credentials_dict['installed']['client_secret'],
+		scopes=SCOPES
+	)
 
-	with open(TOKEN_PATH, 'w') as token:
-		token.write(creds.to_json())
-	updated_token_b64 = base64.b64encode(creds.to_json().encode('utf-8')).decode('utf-8')
-
-	print(f"Updated token: {updated_token_b64}")
-
+	creds.refresh(Request())
 	return creds
 
 def get_sheets_service():
@@ -79,37 +73,37 @@ driver = webdriver.Chrome(service=service, options=chrome_options)
 
 print("Chrome WebDriver successfully initialized!")
 
+service = build("sheets", "v4", credentials=get_google_sheets_service())
+
 try:
-    driver.get("https://public.rma.usda.gov/livestockreports/LRPReport.aspx")
-    logging.debug("Page loaded successfully.")
+	driver.get("https://public.rma.usda.gov/livestockreports/LRPReport.aspx")
+	logging.debug("Page loaded successfully.")
 
-    dropdown_element = driver.find_element(By.TAG_NAME, "select")
-    logging.debug("Dropdown found.")
+	dropdown_element = driver.find_element(By.TAG_NAME, "select")
+	logging.debug("Dropdown found.")
 
-    select = Select(dropdown_element)
-    first_option = select.options[0].text  # Extract only the first option
-    logging.debug(f"Extracted first dropdown option: {first_option}")
+	select = Select(dropdown_element)
+	first_option = select.options[0].text  # Extract only the first option
+	logging.debug(f"Extracted first dropdown option: {first_option}")
 
-    service = build("sheets", "v4", credentials=get_google_sheets_service())
+	spreadsheet_id = '1eFn_RVcCw3MmdLRGASrYwoCbc1UPfFNVqq1Fbz2mvYg'
+	range_name = 'Sheet1!D1'
+	sheet = service.spreadsheets()
 
-    spreadsheet_id = '1eFn_RVcCw3MmdLRGASrYwoCbc1UPfFNVqq1Fbz2mvYg'
-    range_name = 'Sheet1!D1'
-    sheet = service.spreadsheets()
+	update_values = [[first_option]]
 
-    update_values = [[first_option]]
+	sheet.values().update(
+		spreadsheetId=spreadsheet_id,
+		range=range_name,
+		valueInputOption="RAW",
+		body={"values": update_values}
+	).execute()
 
-    sheet.values().update(
-        spreadsheetId=spreadsheet_id,
-        range=range_name,
-        valueInputOption="RAW",
-        body={"values": update_values}
-    ).execute()
-
-    print("First dropdown option successfully saved to Google Sheets!")
+	print("First dropdown option successfully saved to Google Sheets!")
 
 except Exception as e:
-    print(f"Error extracting dropdown data: {e}")
+	print(f"Error extracting dropdown data: {e}")
 
 finally:
-    driver.quit()
-    logging.debug("Script finished successfully")
+	driver.quit()
+	logging.debug("Script finished successfully")
