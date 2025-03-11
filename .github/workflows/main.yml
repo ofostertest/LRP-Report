@@ -3,7 +3,6 @@ name: Run LRP Report Script Daily
 on:
   schedule:
     - cron: "30 21 * * *"
-    - cron: "0 22 * * *" 
     
   workflow_dispatch:  
 
