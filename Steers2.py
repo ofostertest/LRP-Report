@@ -93,34 +93,49 @@ file_path = 'LRP-Spreadsheet.xlsx'
 body = driver.find_element(By.TAG_NAME, 'body')
 
 try:
-	table = WebDriverWait(driver,20).until(
+	table = WebDriverWait(driver, 20).until(
 		EC.presence_of_element_located((By.XPATH, "//table[@id='_ctl0_cphContent_tblContent']"))
 	)
-	rows = table.find_elements(By.TAG_NAME,"tr")
-
-	selected_rows = [7, 19, 31, 43, 55, 67, 86, 98, 110]
+	WebDriverWait(driver, 10).until(
+		EC.presence_of_element_located((By.XPATH, "//table[@id='_ctl0_cphContent_tblContent']/tbody/tr[last()]"))
+	)
+	time.sleep(3)
+	
+	rows = table.find_elements(By.TAG_NAME, "tr")
 	selected_data = []
 
-	for i, row in enumerate(rows,start=1):
-		if i in selected_rows:
-			cols = row.find_elements(By.TAG_NAME,"td")
-			if len(cols)>13:
-				raw_price_8 = cols[8].text 
-				raw_price_12 = cols[12].text
-				
-				def format_price(price_text):
-					match = re.search(r'(\$\d{1,6}(?:\.\d{0,2})?)', price_text)
-					return match.group() if match else price_text
-                
-				formatted_price_8 = format_price(raw_price_8)
-				formatted_price_12 = format_price(raw_price_12)
+	target_values = {13, 17, 21, 26, 30, 34, 39, 43, 47}
+	found_values = {}
 
-				selected_data.append([
-					cols[13].text,
-					formatted_price_8,
-					formatted_price_12
-				])
+	for row in rows:
+		cols = row.find_elements(By.TAG_NAME, "td")
+		if len(cols) > 13:
+			column_3_value = cols[2].text.strip()
+			
+			if column_3_value.isdigit():
+				column_3_int = int(column_3_value)
 				
+				if column_3_int in target_values and column_3_int not in found_values:
+					raw_price_8 = cols[8].text.strip() if len(cols) > 8 else "N/A"
+					raw_price_12 = cols[12].text.strip() if len(cols) > 12 else "N/A"
+
+					def format_price(price_text):
+						if not price_text.strip():
+							return "N/A"
+						match = re.search(r'(\$\d{1,6}(?:\.\d{0,2})?)', price_text)
+						return match.group() if match else price_text
+
+					formatted_price_8 = format_price(raw_price_8)
+					formatted_price_12 = format_price(raw_price_12)
+
+					selected_data.append([
+						cols[13].text if len (cols) > 13 else "N/A",
+						formatted_price_8,
+						formatted_price_12
+					])
+
+					found_values[column_3_int] = True
+					
 	print(f"Selected Data: {selected_data}")
 	
 	service = build("sheets","v4", credentials=get_google_sheets_service())
