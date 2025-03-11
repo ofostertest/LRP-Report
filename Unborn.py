@@ -127,18 +127,20 @@ try:
 		EC.presence_of_element_located((By.XPATH, "//table[@id='_ctl0_cphContent_tblContent']"))
 	)
 	rows = table.find_elements(By.TAG_NAME, "tr")
-
-	selected_rows = [7, 19, 31, 43, 55, 67, 86, 98, 110]
 	selected_data = []
 
-	for i, row in enumerate(rows,start=1):
-		if i in selected_rows:
-			cols = row.find_elements(By.TAG_NAME,"td")   
-			if len(cols)>13:
-				raw_price_8 = cols[8].text 
-				raw_price_12 = cols[12].text
+	for row in rows:
+		cols = row.find_elements(By.TAG_NAME, "td")
+		if len(cols) > 13:
+			column_10_value = cols[9].text.strip()
+
+		if column_10_value == "1.000000":
+			raw_price_8 = cols[8].text.strip() if len(cols) > 8 else "N/A"
+			raw_price_12 = cols[12].text.strip() if len(cols) > 12 else "N/A"
 
 				def format_price(price_text):
+					if not price_text.strip():
+						return "N/A"
 					match = re.search(r'(\$\d{1,6}(?:\.\d{0,2})?)', price_text)
 					return match.group() if match else price_text
 
@@ -146,7 +148,7 @@ try:
 				formatted_price_12 = format_price(raw_price_12)
 
 				selected_data.append([
-					cols[13].text,
+					cols[13].text if len (cols) > 13 else "N/A",
 					formatted_price_8,
 					formatted_price_12
 				])
