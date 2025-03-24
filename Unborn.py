@@ -90,8 +90,10 @@ def select_dropdown_by_index(dropdown_id, index):
 		dropdown.select_by_index(index)
 		time.sleep(1)  
 		print(f"Selected index {index} from dropdown {dropdown_id}")
+		return True
 	except Exception as e:
 		print(f"Error selecting dropdown {dropdown_id}: {e}")
+		return False
 
 def click_button(button_id):
 	try:
@@ -101,20 +103,28 @@ def click_button(button_id):
 		button_element.click()
 		time.sleep(2)
 		print(f"Clicked button {button_id}")
+		return True
 	except Exception as e:
 		print(f"Error clicking button {button_id}: {e}")
+		return False
 
-select_dropdown_by_index("_ctl0_cphContent_ddlEffectiveDt", 0)
-click_button("_ctl0_cphContent_btnLRPNext")
+def stop_if_failed(step):
+	if not step:
+		print("Critical error encountered! Stopping Script.")
+		driver.quit()
+		exit(1)
 
-select_dropdown_by_index("_ctl0_cphContent_ddlLRPState", 33)
-click_button("_ctl0_cphContent_btnLRPNext")
+stop_if_failed(select_dropdown_by_index("_ctl0_cphContent_ddlEffectiveDt", 0))
+stop_if_failed(click_button("_ctl0_cphContent_btnLRPNext"))
 
-select_dropdown_by_index("_ctl0_cphContent_ddlLRPCommodity", 1)
-click_button("_ctl0_cphContent_btnLRPNext")
+stop_if_failed(select_dropdown_by_index("_ctl0_cphContent_ddlLRPState", 33))
+stop_if_failed(click_button("_ctl0_cphContent_btnLRPNext"))
 
-select_dropdown_by_index("_ctl0_cphContent_ddlType", 9)
-click_button("_ctl0_cphContent_btnCreateLRPReport")
+stop_if_failed(select_dropdown_by_index("_ctl0_cphContent_ddlLRPCommodity", 1))
+stop_if_failed(click_button("_ctl0_cphContent_btnLRPNext"))
+
+stop_if_failed(select_dropdown_by_index("_ctl0_cphContent_ddlType", 9))
+stop_if_failed(click_button("_ctl0_cphContent_btnCreateLRPReport"))
 
 time.sleep(5)
 
