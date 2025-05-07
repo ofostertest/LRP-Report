@@ -42,18 +42,26 @@ jobs:
           python3 -m pip install --upgrade pip
           pip install selenium google-auth google-auth-oauthlib google-auth-httplib2 google-api-python-client gspread openpyxl pandas webdriver_manager    
 
-      - name: Install Chrome v124
+      - name: Install jq
+        run: sudo apt-get install -y jq
+
+      - name: Install latest Google Chrome
         run: |
-          wget https://dl.google.com/linux/chrome/deb/pool/main/g/google-chrome-stable/google-chrome-stable_124.0.6367.91-1_amd64.deb
-          sudo apt install -y --allow-downgrades ./google-chrome-stable_124.0.6367.91-1_amd64.deb
-     
-      - name: Install ChromeDriver v124
+          wget https://dl.google.com/linux/direct/google-chrome-stable_current_amd64.deb
+          sudo apt install -y ./google-chrome-stable_current_amd64.deb
+
+      - name: Install matching ChromeDriver
         run: |
-          wget https://storage.googleapis.com/chrome-for-testing-public/124.0.6367.91/linux64/chromedriver-linux64.zip
-          unzip chromedriver-linux64.zip
+          CHROME_VERSION=$(google-chrome --version | grep -oP '\d+\.\d+\.\d+\.\d+')
+          echo "Detected Chrome version: $CHROME_VERSION"
+          DRIVER_URL=$(curl -s https://googlechromelabs.github.io/chrome-for-testing/last-known-good-versions-with-downloads.json | \
+            jq -r --arg ver "$CHROME_VERSION" '.channels.Stable.downloads.chromedriver[] | select(.platform=="linux64") | .url')
+          echo "Downloading ChromeDriver from: $DRIVER_URL"
+          wget "$DRIVER_URL" -O chromedriver.zip
+          unzip chromedriver.zip
           sudo mv chromedriver-linux64/chromedriver /usr/local/bin/chromedriver
           sudo chmod +x /usr/local/bin/chromedriver
-          
+
       - name: Verify Chrome & ChromeDriver
         run: |
           echo "Google Chrome Version: $(google-chrome --version)"
