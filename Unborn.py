@@ -79,7 +79,14 @@ driver = webdriver.Chrome(service=service, options=chrome_options)
 
 print("Chrome WebDriver successfully initialized!")
 
-driver.get("https://public.rma.usda.gov/livestockreports/LRPReport.aspx")
+try:
+	driver.set_page_load_timeout(180)  # Increase timeout to 3 minutes
+	driver.get("https://public.rma.usda.gov/livestockreports/LRPReport.aspx")
+except Exception as e:
+	logging.error(f"Page load failed: {e}")
+	driver.quit()
+	exit(1)
+
 
 def select_dropdown_by_index(dropdown_id, index):
 	try:
