@@ -90,15 +90,26 @@ except Exception as e:
 
 def select_dropdown_by_index(dropdown_id, index):
 	try:
+		print(f"Waiting for dropdown: {dropdown_id}")
 		dropdown_element = WebDriverWait(driver, 10).until(
 			EC.presence_of_element_located((By.ID, dropdown_id))
 		)
+		print(f"Dropdown found: {dropdown_id}, attempting to select index {index}")
+		
 		dropdown = Select(dropdown_element)
 		dropdown.select_by_index(index)
-		time.sleep(1)  
-		print(f"Selected index {index} from dropdown {dropdown_id}")
+		time.sleep(1)
+		print(f"Successfully selected index {index} from dropdown {dropdown_id}")
 		return True
+
 	except Exception as e:
+		# Additional check to see if the element exists in the DOM at all
+		try:
+			raw_element = driver.find_element(By.ID, dropdown_id)
+			print(f"Element exists but caused error: Tag={raw_element.tag_name}, Visible={raw_element.is_displayed()}")
+		except:
+			print(f"Dropdown element {dropdown_id} not found in DOM at all.")
+
 		print(f"Error selecting dropdown {dropdown_id}: {e}")
 		return False
 
