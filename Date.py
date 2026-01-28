@@ -1,96 +1,77 @@
-from selenium import webdriver
-from selenium.webdriver.chrome.service import Service
-from selenium.webdriver.chrome.options import Options
-from selenium.webdriver.common.by import By
-from selenium.webdriver.support.ui import Select, WebDriverWait
-from selenium.webdriver.support import expected_conditions as EC
+import os
+import base64
+import logging
+from datetime import datetime
 from google.oauth2.credentials import Credentials
 from google_auth_oauthlib.flow import InstalledAppFlow
 from google.auth.transport.requests import Request
 from googleapiclient.discovery import build
-from datetime import datetime
-import openpyxl
-import os
-import re
-import gspread
-import pandas as pd
-import subprocess
-import time
-import logging
-import base64
-import json
 
-CREDENTIALS_PATH = 'credentials.json'
-TOKEN_PATH = 'token.json'
-SCOPES = ['https://www.googleapis.com/auth/spreadsheets']
+logging.basicConfig(level=logging.INFO)
 
-chrome_options = Options()
-chrome_options.add_argument("--headless") 
-chrome_options.add_argument("--no-sandbox")
-chrome_options.add_argument("--disable-dev-shm-usage")
-driver = webdriver.Chrome(service=Service("/usr/bin/chromedriver"), options=chrome_options)
+SCOPES = ["https://www.googleapis.com/auth/spreadsheets"]
+SPREADSHEET_ID = "1eFn_RVcCw3MmdLRGASrYwoCbc1UPfFNVqq1Fbz2mvYg"
+SHEET_NAME = "Sheet1"
 
-def get_google_sheets_service():
-	creds = None
-	if os.path.exists(TOKEN_PATH):
-		creds = Credentials.from_authorized_user_file(TOKEN_PATH, SCOPES)
-	if not creds or not creds.valid:
-		if creds and creds.expired and creds.refresh_token:
-			creds.refresh(Request())
-		else:
-			flow = InstalledAppFlow.from_client_secrets_file(CREDENTIALS_PATH, SCOPES)
-			creds = flow.run_local_server(port=0, access_type='offline', prompt='consent')
-		with open(TOKEN_PATH, "w") as token:
-			token.write(creds.to_json())
-	return creds
+# ---------------- Google Auth ----------------
+CREDENTIALS_B64 = os.getenv("GOOGLE_OAUTH_CREDENTIALS_B64")
+if not CREDENTIALS_B64:
+    raise Exception("Missing GOOGLE_OAUTH_CREDENTIALS_B64 environment variable")
+
+with open("credentials.json", "w") as f:
+    f.write(base64.b64decode(CREDENTIALS_B64).decode("utf-8"))
 
 def get_sheets_service():
-	creds = get_google_sheets_service()
-	service = build('sheets', 'v4', credentials=creds)
-	return service
+    creds = None
 
-def update_google_sheet(selected_data):
-	service = get_sheets_service()
-	spreadsheet_id = '1eFn_RVcCw3MmdLRGASrYwoCbc1UPfFNVqq1Fbz2mvYg'
-	sheet_name = "Sheet1"
-	range_name = 'Sheet1!C4'
-	
-	sheet = service.spreadsheets()
-	
-	update_values = selected_data
-	sheet.values().update(
-		spreadsheetId=spreadsheet_id,
-		range=range_name,
-		valueInputOption="RAW",
-		body={"values": update_values}
-	).execute()
-	
-	print("Data successfully saved to Google Sheets!")
+    if os.path.exists("token.json"):
+        creds = Credentials.from_authorized_user_file("token.json", SCOPES)
 
-	columns_to_watch = [3, 4, 5, 6, 7]
-	range_to_check = f"{sheet_name}!C4:G58"
-	
-	result = service.spreadsheets().values().get(
-		spreadsheetId=spreadsheet_id, 
-		range=range_to_check
-	).execute()
+    if not creds or not creds.valid:
+        if creds and creds.expired and creds.refresh_token:
+            creds.refresh(Request())
+        else:
+            flow = InstalledAppFlow.from_client_secrets_file(
+                "credentials.json", SCOPES
+            )
+            creds = flow.run_local_server(port=0)
 
-	data = result.get("values", [])
-	
-	changes_detected = any(any(row[i] for i in columns_to_watch) for row in data)
-	if changes_detected:
-		now = datetime.now().strftime("%m-%d-%Y")
-		timestamp_range = f"{sheet_name}!D1"
+        with open("token.json", "w") as token:
+            token.write(creds.to_json())
 
-		service.spreadsheets().values().update(
-			spreadsheetId=spreadsheet_id,
-			range=timestamp_range,
-			valueInputOption="RAW",
-			body={"values": [[now]]}
-		).execute()
-		
-		print(f"Updated timestamp in D1: {now}")
+    return build("sheets", "v4", credentials=creds)
 
-driver.quit()
+# ---------------- Update Timestamp Logic ----------------
+def update_timestamp_if_data_exists():
+    service = get_sheets_service()
 
-logging.debug("Script finished successfully")
+    # Range that contains report data
+    data_range = f"{SHEET_NAME}!C4:G58"
+    result = service.spreadsheets().values().get(
+        spreadsheetId=SPREADSHEET_ID,
+        range=data_range
+    ).execute()
+
+    data = result.get("values", [])
+
+    # Check if ANY cell has data
+    changes_detected = any(any(cell.strip() for cell in row) for row in data)
+
+    if changes_detected:
+        now = datetime.now().strftime("%m-%d-%Y")
+        timestamp_range = f"{SHEET_NAME}!D1"
+
+        service.spreadsheets().values().update(
+            spreadsheetId=SPREADSHEET_ID,
+            range=timestamp_range,
+            valueInputOption="RAW",
+            body={"values": [[now]]}
+        ).execute()
+
+        logging.info(f"Timestamp updated in D1: {now}")
+    else:
+        logging.info("No data detected — timestamp not updated")
+
+# ---------------- Run ----------------
+update_timestamp_if_data_exists()
+logging.info("MDY script finished successfully")
