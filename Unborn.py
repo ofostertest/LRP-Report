@@ -88,30 +88,32 @@ except Exception as e:
 	exit(1)
 
 
-def select_dropdown_by_index(dropdown_id, index):
-	try:
-		print(f"Waiting for dropdown: {dropdown_id}")
-		dropdown_element = WebDriverWait(driver, 10).until(
-			EC.presence_of_element_located((By.ID, dropdown_id))
-		)
-		print(f"Dropdown found: {dropdown_id}, attempting to select index {index}")
-		
-		dropdown = Select(dropdown_element)
-		dropdown.select_by_index(index)
-		time.sleep(1)
-		print(f"Successfully selected index {index} from dropdown {dropdown_id}")
-		return True
+def select_dropdown_by_index_partial(id_fragment, index):
+    try:
+        print(f"Waiting for dropdown containing id: {id_fragment}")
 
-	except Exception as e:
-		# Additional check to see if the element exists in the DOM at all
-		try:
-			raw_element = driver.find_element(By.ID, dropdown_id)
-			print(f"Element exists but caused error: Tag={raw_element.tag_name}, Visible={raw_element.is_displayed()}")
-		except:
-			print(f"Dropdown element {dropdown_id} not found in DOM at all.")
+        dropdown_element = WebDriverWait(driver, 30).until(
+            EC.presence_of_element_located(
+                (By.XPATH, f"//select[contains(@id,'{id_fragment}')]")
+            )
+        )
 
-		print(f"Error selecting dropdown {dropdown_id}: {e}")
-		return False
+        dropdown = Select(dropdown_element)
+        dropdown.select_by_index(index)
+
+        # Important for ASP.NET postbacks
+        driver.execute_script(
+            "arguments[0].dispatchEvent(new Event('change'))",
+            dropdown_element
+        )
+
+        time.sleep(2)
+        print(f"Successfully selected index {index} from dropdown {id_fragment}")
+        return True
+
+    except Exception as e:
+        print(f"Failed selecting dropdown {id_fragment}: {e}")
+        return False
 
 def click_button(button_id):
 	try:
@@ -119,6 +121,9 @@ def click_button(button_id):
 			EC.element_to_be_clickable((By.ID, button_id))
 		)
 		button_element.click()
+		WebDriverWait(driver, 30).until(
+    		lambda d: d.execute_script("return document.readyState") == "complete"
+		)
 		time.sleep(2)
 		print(f"Clicked button {button_id}")
 		return True
@@ -132,16 +137,16 @@ def stop_if_failed(step):
 		driver.quit()
 		exit(1)
 
-stop_if_failed(select_dropdown_by_index("_ctl0_cphContent_ddlEffectiveDt", 0))
+stop_if_failed(select_dropdown_by_index_partial("ddlEffectiveDt", 0))
 stop_if_failed(click_button("_ctl0_cphContent_btnLRPNext"))
 
-stop_if_failed(select_dropdown_by_index("_ctl0_cphContent_ddlLRPState", 33))
+stop_if_failed(select_dropdown_by_index_partial("ddlLRPState", 33))
 stop_if_failed(click_button("_ctl0_cphContent_btnLRPNext"))
 
-stop_if_failed(select_dropdown_by_index("_ctl0_cphContent_ddlLRPCommodity", 1))
+stop_if_failed(select_dropdown_by_index_partial("ddlLRPCommodity", 1))
 stop_if_failed(click_button("_ctl0_cphContent_btnLRPNext"))
 
-stop_if_failed(select_dropdown_by_index("_ctl0_cphContent_ddlType", 9))
+stop_if_failed(select_dropdown_by_index_partial("ddlType", 9))
 stop_if_failed(click_button("_ctl0_cphContent_btnCreateLRPReport"))
 
 time.sleep(5)
