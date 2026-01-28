@@ -1,192 +1,116 @@
-name: Run LRP Report Script Daily
+name: Run LRP Report Scripts Daily
 
 on:
   schedule:
     - cron: "45 20 * * *"
     - cron: "0 21 * * *"
     - cron: "30 21 * * *"
-    
-  workflow_dispatch:  
+  workflow_dispatch:
 
 jobs:
-  run-script:
+  run-scripts:
     runs-on: ubuntu-latest
 
     steps:
       - name: Check out repository
-        uses: actions/checkout@v2
+        uses: actions/checkout@v4
 
-      - name: Set up Xvfb for headless browser
-        run: |
-          sudo apt-get install -y xvfb
-          Xvfb :99 -screen 0 1280x1024x24 &
-          sleep 5
-          export DISPLAY=:99
-          echo "Xvfb setup complete"
-
-      - name: Debug Xvfb
-        run: |
-          ps aux | grep Xvfb || echo "Xvfb is NOT running!"
-
-      - name: Ensure DISPLAY variable is set
-        run: echo "DISPLAY=:99" >> $GITHUB_ENV
-
-      - name: Check DISPLAY variable
-        run: echo "DISPLAY=$DISPLAY"
-
-      - name: Set Up Python
-        uses: actions/setup-python@v3
+      - name: Set up Python
+        uses: actions/setup-python@v5
         with:
-          python-version: '3.9'
+          python-version: "3.11"
 
       - name: Install dependencies
         run: |
-          python3 -m pip install --upgrade pip
+          python -m pip install --upgrade pip
           pip install \
-            selenium \
             requests \
             beautifulsoup4 \
             google-auth \
             google-auth-oauthlib \
-            google-auth-httplib2 \
             google-api-python-client \
             gspread \
-            openpyxl \
             pandas \
-            webdriver_manager
-            
-      - name: Install jq
-        run: sudo apt-get install -y jq
-
-      - name: Install latest Google Chrome
-        run: |
-          wget https://dl.google.com/linux/direct/google-chrome-stable_current_amd64.deb
-          sudo apt install -y ./google-chrome-stable_current_amd64.deb
-
-      - name: Install matching ChromeDriver
-        run: |
-          CHROME_VERSION=$(google-chrome --version | grep -oP '\d+\.\d+\.\d+\.\d+')
-          echo "Detected Chrome version: $CHROME_VERSION"
-          DRIVER_URL=$(curl -s https://googlechromelabs.github.io/chrome-for-testing/last-known-good-versions-with-downloads.json | \
-            jq -r --arg ver "$CHROME_VERSION" '.channels.Stable.downloads.chromedriver[] | select(.platform=="linux64") | .url')
-          echo "Downloading ChromeDriver from: $DRIVER_URL"
-          wget "$DRIVER_URL" -O chromedriver.zip
-          unzip chromedriver.zip
-          sudo mv chromedriver-linux64/chromedriver /usr/local/bin/chromedriver
-          sudo chmod +x /usr/local/bin/chromedriver
-
-      - name: Verify Chrome & ChromeDriver
-        run: |
-          echo "Google Chrome Version: $(google-chrome --version)"
-          echo "ChromeDriver Version: $(chromedriver --version)"
-
-      - name: Check Chrome & ChromeDriver
-        run: |
-          echo "Chrome version: $(google-chrome --version)"
-          echo "ChromeDriver version: $(chromedriver --version)"
-          which google-chrome || echo "Google Chrome not found!"
-          which chromedriver || echo "ChromeDriver not found!"
-        shell: bash
-
-      - name: Test Chrome Headless
-        run: |
-          google-chrome --headless --disable-gpu --no-sandbox --dump-dom https://www.google.com || echo "Chrome failed to start"
+            openpyxl
 
       - name: Create credentials.json from Secret
-        run: echo "${{ secrets.GOOGLE_OAUTH_CREDENTIALS_B64 }}" | base64 --decode > credentials.json
-        shell: bash
-
-      - name: Debug Secret Access
         run: |
-          echo "Checking GOOGLE_OAUTH_CREDENTIALS_B64"
-          echo ${{ secrets.GOOGLE_OAUTH_CREDENTIALS_B64 }} | base64 --decode
+          echo "${{ secrets.GOOGLE_OAUTH_CREDENTIALS_B64 }}" | base64 --decode > credentials.json
 
-      - name: Check Google OAuth Secret
+      - name: Create token.json from Secret (if present)
+        if: secrets.GOOGLE_OAUTH_TOKEN_B64 != ''
         run: |
-          if [ -z "$GOOGLE_OAUTH_CREDENTIALS_B64" ]; then
-            echo "GOOGLE_OAUTH_CREDENTIALS_B64 is empty!"
-            exit 1
-          else
-            echo "GOOGLE_OAUTH_CREDENTIALS_B64 is set."
-          fi
+          echo "${{ secrets.GOOGLE_OAUTH_TOKEN_B64 }}" | base64 --decode > token.json
+
+      - name: Run LRP Scripts
         env:
           GOOGLE_OAUTH_CREDENTIALS_B64: ${{ secrets.GOOGLE_OAUTH_CREDENTIALS_B64 }}
-
-      - name: Create token.json from GitHub Secret
-        run: echo "${{ secrets.GOOGLE_OAUTH_TOKEN_B64 }}" | base64 --decode > token.json
- 
-      - name: Run Unborn Script
-        run: | 
-          python3 Unborn.py
-        env:
-          DISPLAY: :99
-          GOOGLE_OAUTH_CREDENTIALS_B64: ${{ secrets.GOOGLE_OAUTH_CREDENTIALS_B64 }}
-
-      - name: Run Steers1 Script
         run: |
-          python3 Steers1.py
-        env:
-          DISPLAY: :99
-          GOOGLE_OAUTH_CREDENTIALS_B64: ${{ secrets.GOOGLE_OAUTH_CREDENTIALS_B64 }}
-
-      - name: Run Steers2 Script
-        run: |
-          python3 Steers2.py
-        env:
-          DISPLAY: :99
-          GOOGLE_OAUTH_CREDENTIALS_B64: ${{ secrets.GOOGLE_OAUTH_CREDENTIALS_B64 }}
-
-      - name: Run Heifers1 Script
-        run: |
-          python3 Heifers1.py
-        env:
-          DISPLAY: :99
-          GOOGLE_OAUTH_CREDENTIALS_B64: ${{ secrets.GOOGLE_OAUTH_CREDENTIALS_B64 }}
-
-      - name: Run Heifers2 Script
-        run: |
-          python3 Heifers2.py
-        env:
-          DISPLAY: :99
-          GOOGLE_OAUTH_CREDENTIALS_B64: ${{ secrets.GOOGLE_OAUTH_CREDENTIALS_B64 }}
-
-      - name: Run Date Script
-        run: |
-          python3 MDY.py
-        env:
-          DISPLAY: :99
-          GOOGLE_OAUTH_CREDENTIALS_B64: ${{ secrets.GOOGLE_OAUTH_CREDENTIALS_B64 }}    
+          set -e
+          python Unborn.py
+          python Steers1.py
+          python Steers2.py
+          python Heifers1.py
+          python Heifers2.py
+          python MDY.py
 
   retry-run:
-    needs: run-script
+    needs: run-scripts
     if: failure()
     runs-on: ubuntu-latest
+
     steps:
       - name: Check out repository
-        uses: actions/checkout@v2
+        uses: actions/checkout@v4
 
-      - name: Wait Before Retrying
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Install dependencies
         run: |
-          echo "Waiting 30 minutes before retry..."
-          sleep 1800
+          python -m pip install --upgrade pip
+          pip install \
+            requests \
+            beautifulsoup4 \
+            google-auth \
+            google-auth-oauthlib \
+            google-api-python-client \
+            gspread \
+            pandas \
+            openpyxl
 
-      - name: Retry Running Scripts (Max 5 Attempts)
+      - name: Restore credentials
+        run: |
+          echo "${{ secrets.GOOGLE_OAUTH_CREDENTIALS_B64 }}" | base64 --decode > credentials.json
+          if [ -n "${{ secrets.GOOGLE_OAUTH_TOKEN_B64 }}" ]; then
+            echo "${{ secrets.GOOGLE_OAUTH_TOKEN_B64 }}" | base64 --decode > token.json
+          fi
+
+      - name: Retry scripts (up to 5 times)
+        env:
+          GOOGLE_OAUTH_CREDENTIALS_B64: ${{ secrets.GOOGLE_OAUTH_CREDENTIALS_B64 }}
         run: |
           MAX_ATTEMPTS=5
           ATTEMPT=1
 
-          while [ $ATTEMPT -le $MAX_ATTEMPTS ]; do
-            echo "Attempt $ATTEMPT of $MAX_ATTEMPTS..."
-            python3 Unborn.py && python3 Steers1.py && python3 Steers2.py && python3 Heifers1.py && python3 Heifers2.py && break
-            echo "Attempt $ATTEMPT failed. Retrying in 30 minutes..."
+          until [ $ATTEMPT -gt $MAX_ATTEMPTS ]
+          do
+            echo "Attempt $ATTEMPT of $MAX_ATTEMPTS"
+            python Unborn.py && \
+            python Steers1.py && \
+            python Steers2.py && \
+            python Heifers1.py && \
+            python Heifers2.py && \
+            python MDY.py && break
+
+            echo "Attempt $ATTEMPT failed — retrying in 30 minutes"
             sleep 1800
             ATTEMPT=$((ATTEMPT+1))
           done
 
           if [ $ATTEMPT -gt $MAX_ATTEMPTS ]; then
-            echo "All retry attempts failed."
+            echo "All retry attempts failed"
             exit 1
           fi
-        env:
-          DISPLAY: :99
-          GOOGLE_OAUTH_CREDENTIALS_B64: ${{ secrets.GOOGLE_OAUTH_CREDENTIALS_B64 }}
