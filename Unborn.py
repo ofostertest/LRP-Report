@@ -110,32 +110,35 @@ table_div = soup.find("div", {"id": "oReportDiv"})
 if not table_div:
     raise Exception("Report table not found on page")
 
-table = table_div.find_all("table")
-rows = table.find_all("tr")
+tables = table_div.find_all("table")  # list of tables
 selected_data = []
 
 target_values = {13, 17, 21, 26, 30, 34, 39, 43, 47}
 found = set()
 
-for row in rows:
-    cols = row.find_all("td")
-    if len(cols) > 13:
-        val = cols[2].get_text(strip=True)
-        if val.isdigit():
-            val_int = int(val)
-            if val_int in target_values and val_int not in found:
-            
-                def price(col):
-                    txt = col.get_text(strip=True)
-                    m = re.search(r"\$\d+(?:\.\d{2})?", txt)
-                    return m.group() if m else "N/A"
+# Helper function for extracting price
+def price(col):
+    txt = col.get_text(strip=True)
+    m = re.search(r"\$\d+(?:\.\d{2})?", txt)
+    return m.group() if m else "N/A"
 
-                selected_data.append([
-                    cols[13].get_text(strip=True),
-                    price(cols[8]),
-                    cols[11].get_text(strip=True)
-            ])
-            found.add(int(val))
+# Loop through all tables
+for table in tables:
+    rows = table.find_all("tr")
+    for row in rows:
+        cols = row.find_all("td")
+        if len(cols) > 13:
+            val = cols[2].get_text(strip=True)
+            if val.isdigit():
+                val_int = int(val)
+                # Only take the first occurrence of each target value
+                if val_int in target_values and val_int not in found:
+                    selected_data.append([
+                        cols[13].get_text(strip=True),  # Column 13
+                        price(cols[8]),                 # Column 8
+                        cols[11].get_text(strip=True)   # Column 11
+                    ])
+                    found.add(val_int)
 
 logging.info(f"Collected {len(selected_data)} rows")
 
