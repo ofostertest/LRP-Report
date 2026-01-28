@@ -97,7 +97,7 @@ def select_custom_dropdown(dropdown_id, option_index=0):
         return False
 
 def click_next_button():
-     try:
+    try:
         button = WebDriverWait(driver, 10).until(
             EC.element_to_be_clickable((By.XPATH, "//input[@type='submit' and @value='Next >>']"))
         )
