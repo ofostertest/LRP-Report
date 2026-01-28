@@ -116,17 +116,14 @@ resp.raise_for_status()
 soup = BeautifulSoup(resp.text, "html.parser")
 
 # ---------------- Parse All Tables ----------------
-table_div = soup.find("div", {"id": "oReportDiv"})
-if not table_div:
-    raise Exception("Report table not found on page")
-
-tables = table_div.find_all("table", recursive=True)
+tables = soup.find_all("table")  # Search all tables on the page
 selected_data = []
 found = set()  # Track which target values have been found
 
 TARGET_VALUES = {13, 17, 21, 26, 30, 34, 39, 43, 47}
 
 def price(col):
+    """Extract price string like $123.45 from a table column."""
     txt = col.get_text(strip=True)
     m = re.search(r"\$\d+(?:\.\d{2})?", txt)
     return m.group() if m else "N/A"
@@ -135,7 +132,7 @@ for table in tables:
     rows = table.find_all("tr")
     for row in rows:
         cols = row.find_all("td")
-        if len(cols) > 13:  # Ensure the row has enough columns
+        if len(cols) > 13:  # Ensure row has enough columns
             val = cols[2].get_text(strip=True)
             if val.isdigit():
                 val_int = int(val)
@@ -147,8 +144,11 @@ for table in tables:
                     ])
                     found.add(val_int)
 
+# Log results
 if len(selected_data) < len(TARGET_VALUES):
-    logging.warning(f"Only collected {len(selected_data)} rows out of {len(TARGET_VALUES)} target values")
+    logging.warning(
+        f"Only collected {len(selected_data)} rows out of {len(TARGET_VALUES)} target values"
+    )
 else:
     logging.info(f"Collected all {len(selected_data)} rows")
 
