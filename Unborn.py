@@ -13,7 +13,7 @@ from googleapiclient.discovery import build
 
 logging.basicConfig(level=logging.INFO)
 
-URL = "https://public.rma.usda.gov/livestockreports/LRPReport.aspx"
+URL = "https://public.rma.usda.gov/livestockreports/LRPReport"
 SCOPES = ["https://www.googleapis.com/auth/spreadsheets"]
 
 # ---------------- Google Auth ----------------
