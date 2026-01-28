@@ -20,17 +20,16 @@ logging.debug("Starting Unborn.py")
 
 os.environ["DISPLAY"] = ":99"
 
-# Load Google OAuth credentials from GitHub Secrets
 CREDENTIALS_B64 = os.getenv("GOOGLE_OAUTH_CREDENTIALS_B64")
 if not CREDENTIALS_B64:
     raise EnvironmentError("Google OAuth credentials not found in GitHub secrets!")
-
 credentials_json = base64.b64decode(CREDENTIALS_B64).decode('utf-8')
 credentials_dict = json.loads(credentials_json)
+logging.debug("Credentials successfully loaded!")
 
 CREDENTIALS_PATH = 'credentials.json'
-with open(CREDENTIALS_PATH, 'w') as f:
-    json.dump(credentials_dict, f)
+with open(CREDENTIALS_PATH, 'w') as creds_file:
+    json.dump(credentials_dict, creds_file)
 
 TOKEN_PATH = 'token.json'
 SCOPES = ['https://www.googleapis.com/auth/spreadsheets']
@@ -45,7 +44,7 @@ def get_google_sheets_service():
             logging.debug("Refreshing Google OAuth token...")
             creds.refresh(Request())
         else:
-            logging.debug("Starting new OAuth flow...")
+            logging.debug("Initiating new OAuth flow...")
             flow = InstalledAppFlow.from_client_secrets_file(CREDENTIALS_PATH, SCOPES)
             creds = flow.run_local_server(port=0, access_type='offline', prompt='consent')
 
@@ -54,108 +53,100 @@ def get_google_sheets_service():
 
     return creds
 
-# Set up Chrome WebDriver
 chrome_options = Options()
 chrome_options.add_argument("--headless")
 chrome_options.add_argument("--disable-gpu")
 chrome_options.add_argument("--no-sandbox")
 chrome_options.add_argument("--disable-dev-shm-usage")
 
+logging.debug("Starting WebDriver")
 service = Service("/usr/local/bin/chromedriver")
 driver = webdriver.Chrome(service=service, options=chrome_options)
+
 print("Chrome WebDriver successfully initialized!")
 
-# Navigate to USDA LRP page
+# Open the main page
 try:
     driver.set_page_load_timeout(180)
     driver.get("https://public.rma.usda.gov/livestockreports/LRPReport.aspx")
-    WebDriverWait(driver, 60).until(lambda d: d.execute_script("return document.readyState") == "complete")
-    time.sleep(5)  # Wait for ASP.NET JS to load dropdowns
 except Exception as e:
     logging.error(f"Page load failed: {e}")
     driver.quit()
     exit(1)
 
-# Dropdown selection function using partial ID
-def select_dropdown_by_index_partial(id_fragment, index, retries=5, delay=3):
-
-    for attempt in range(1, retries + 1):
-        try:
-            print(f"[Attempt {attempt}] Waiting for dropdown containing id: {id_fragment}")
-
-            dropdown_element = WebDriverWait(driver, 10).until(
-                EC.visibility_of_element_located(
-                    (By.XPATH, f"//select[contains(@id,'{id_fragment}')]")
-                )
-            )
-
-            # Wait until the dropdown actually has options
-            WebDriverWait(driver, 10).until(
-                lambda d: len(dropdown_element.find_elements(By.TAG_NAME, "option")) > 1
-            )
-
-            dropdown = Select(dropdown_element)
-            dropdown.select_by_index(index)
-
-            # Trigger ASP.NET change event
-            driver.execute_script(
-                "arguments[0].dispatchEvent(new Event('change'))",
-                dropdown_element
-            )
-
-            time.sleep(2)
-            print(f"Successfully selected index {index} from dropdown {id_fragment}")
-            return True
-
-        except Exception as e:
-            print(f"Failed selecting dropdown {id_fragment} on attempt {attempt}: {e}")
-            time.sleep(delay)
-
-    # If we get here, all retries failed
-    return False
-
-# Button click function
-def click_button(button_id):
+# --- Helper functions ---
+def select_dropdown_by_index(dropdown_id, index):
     try:
-        button_element = WebDriverWait(driver, 30).until(
-            EC.element_to_be_clickable((By.ID, button_id))
+        print(f"Waiting for dropdown: {dropdown_id}")
+        dropdown_element = WebDriverWait(driver, 30).until(
+            EC.presence_of_element_located((By.ID, dropdown_id))
         )
-        button_element.click()
-        WebDriverWait(driver, 30).until(lambda d: d.execute_script("return document.readyState") == "complete")
-        time.sleep(2)
-        print(f"Clicked button {button_id}")
+        dropdown = Select(dropdown_element)
+        dropdown.select_by_index(index)
+        time.sleep(1)
+        print(f"Successfully selected index {index} from dropdown {dropdown_id}")
         return True
     except Exception as e:
-        print(f"Error clicking button {button_id}: {e}")
+        print(f"Error selecting dropdown {dropdown_id}: {e}")
         return False
 
-# Stop script if any step fails
+def click_next_button():
+    try:
+        # Use XPath to find the input with value="Next >>"
+        button_element = WebDriverWait(driver, 30).until(
+            EC.element_to_be_clickable((By.XPATH, "//input[@type='submit' and @value='Next >>']"))
+        )
+        button_element.click()
+        WebDriverWait(driver, 30).until(
+            lambda d: d.execute_script("return document.readyState") == "complete"
+        )
+        time.sleep(2)
+        print("Clicked Next button")
+        return True
+    except Exception as e:
+        print(f"Error clicking Next button: {e}")
+        return False
+
 def stop_if_failed(step):
     if not step:
         print("Critical error encountered! Stopping Script.")
         driver.quit()
         exit(1)
 
-# Select dropdowns & click buttons in sequence
-stop_if_failed(select_dropdown_by_index_partial("EffectiveDate", 0))
-stop_if_failed(click_button("_ctl0_cphContent_btnLRPNext"))
+# --- Perform selections ---
+stop_if_failed(select_dropdown_by_index("EffectiveDate", 0))
+stop_if_failed(click_next_button())
 
-stop_if_failed(select_dropdown_by_index_partial("StateSelection", 33))
-stop_if_failed(click_button("_ctl0_cphContent_btnLRPNext"))
+stop_if_failed(select_dropdown_by_index("StateSelection", 33))
+stop_if_failed(click_next_button())
 
-stop_if_failed(select_dropdown_by_index_partial("CommoditySelection", 1))
-stop_if_failed(click_button("_ctl0_cphContent_btnLRPNext"))
+stop_if_failed(select_dropdown_by_index("CommoditySelection", 1))
+stop_if_failed(click_next_button())
 
-stop_if_failed(select_dropdown_by_index_partial("TypeSelection", 9))
-stop_if_failed(click_button("_ctl0_cphContent_btnCreateLRPReport"))
+stop_if_failed(select_dropdown_by_index("TypeSelection", 9))
 
-time.sleep(5)
-
-# Extract table data
+# Click the final "Create LRP Report" button
 try:
-    table = WebDriverWait(driver, 20).until(
-        EC.presence_of_element_located((By.XPATH, "//table[@id='_ctl0_cphContent_tblContent']"))
+    create_button = WebDriverWait(driver, 30).until(
+        EC.element_to_be_clickable((By.XPATH, "//input[@type='submit' and @value='Create LRP Report']"))
     )
+    create_button.click()
+    WebDriverWait(driver, 30).until(
+        lambda d: d.execute_script("return document.readyState") == "complete"
+    )
+    time.sleep(5)
+    print("Clicked 'Create LRP Report' button")
+except Exception as e:
+    print(f"Error clicking 'Create LRP Report' button: {e}")
+    driver.quit()
+    exit(1)
+
+# --- Extract table data ---
+try:
+    table_div = WebDriverWait(driver, 30).until(
+        EC.presence_of_element_located((By.ID, "oReportDiv"))
+    )
+    table = table_div.find_element(By.TAG_NAME, "table")
     rows = table.find_elements(By.TAG_NAME, "tr")
     selected_data = []
 
@@ -169,32 +160,40 @@ try:
             if column_3_value.isdigit():
                 column_3_int = int(column_3_value)
                 if column_3_int in target_values and column_3_int not in found_values:
+                    raw_price_8 = cols[8].text.strip() if len(cols) > 8 else "N/A"
+                    raw_price_12 = cols[12].text.strip() if len(cols) > 12 else "N/A"
+
                     def format_price(price_text):
                         if not price_text.strip():
                             return "N/A"
                         match = re.search(r'(\$\d{1,6}(?:\.\d{0,2})?)', price_text)
                         return match.group() if match else price_text
 
+                    formatted_price_8 = format_price(raw_price_8)
+                    formatted_price_12 = format_price(raw_price_12)
+
                     selected_data.append([
                         cols[13].text if len(cols) > 13 else "N/A",
-                        format_price(cols[8].text if len(cols) > 8 else "N/A"),
-                        format_price(cols[12].text if len(cols) > 12 else "N/A")
+                        formatted_price_8,
+                        formatted_price_12
                     ])
+
                     found_values[column_3_int] = True
 
     print(f"Selected Data: {selected_data}")
 
-    # Send data to Google Sheets
     service = build("sheets", "v4", credentials=get_google_sheets_service())
     spreadsheet_id = '1eFn_RVcCw3MmdLRGASrYwoCbc1UPfFNVqq1Fbz2mvYg'
     range_name = 'Sheet1!C4'
+
     sheet = service.spreadsheets()
-    sheet.values().update(
+    request = sheet.values().update(
         spreadsheetId=spreadsheet_id,
         range=range_name,
         valueInputOption="RAW",
         body={"values": selected_data}
     ).execute()
+
     print("Data successfully saved to Google Sheets!")
 
 except Exception as e:
