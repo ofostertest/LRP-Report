@@ -79,32 +79,31 @@ def select_dropdown_by_index(dropdown_id, index):
     try:
         print(f"Waiting for dropdown: {dropdown_id}")
         dropdown_element = WebDriverWait(driver, 30).until(
-            EC.presence_of_element_located((By.ID, dropdown_id))
+            EC.visibility_of_element_located((By.ID, dropdown_id))
         )
+        print(f"Dropdown found: {dropdown_id}, attempting to select index {index}")
+        
         dropdown = Select(dropdown_element)
         dropdown.select_by_index(index)
         time.sleep(1)
         print(f"Successfully selected index {index} from dropdown {dropdown_id}")
         return True
+
     except Exception as e:
         print(f"Error selecting dropdown {dropdown_id}: {e}")
         return False
 
 def click_next_button():
     try:
-        # Use XPath to find the input with value="Next >>"
-        button_element = WebDriverWait(driver, 30).until(
+        button_element = WebDriverWait(driver, 10).until(
             EC.element_to_be_clickable((By.XPATH, "//input[@type='submit' and @value='Next >>']"))
         )
         button_element.click()
-        WebDriverWait(driver, 30).until(
-            lambda d: d.execute_script("return document.readyState") == "complete"
-        )
         time.sleep(2)
-        print("Clicked Next button")
+        print("Clicked Next >> button")
         return True
     except Exception as e:
-        print(f"Error clicking Next button: {e}")
+        print(f"Error clicking Next >> button: {e}")
         return False
 
 def stop_if_failed(step):
