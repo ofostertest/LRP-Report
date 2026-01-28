@@ -116,13 +116,12 @@ selected_data = []
 target_values = {13, 17, 21, 26, 30, 34, 39, 43, 47}
 found = set()
 
-# Helper function for extracting price
 def price(col):
     txt = col.get_text(strip=True)
     m = re.search(r"\$\d+(?:\.\d{2})?", txt)
     return m.group() if m else "N/A"
 
-# Loop through all tables
+# Loop over all tables
 for table in tables:
     rows = table.find_all("tr")
     for row in rows:
@@ -131,12 +130,11 @@ for table in tables:
             val = cols[2].get_text(strip=True)
             if val.isdigit():
                 val_int = int(val)
-                # Only take the first occurrence of each target value
                 if val_int in target_values and val_int not in found:
                     selected_data.append([
-                        cols[13].get_text(strip=True),  # Column 13
-                        price(cols[8]),                 # Column 8
-                        cols[11].get_text(strip=True)   # Column 11
+                        cols[13].get_text(strip=True),  # column 13
+                        price(cols[8]),                 # column 8
+                        cols[11].get_text(strip=True)   # column 11
                     ])
                     found.add(val_int)
 
