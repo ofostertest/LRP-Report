@@ -137,16 +137,16 @@ def stop_if_failed(step):
         exit(1)
 
 # Select dropdowns & click buttons in sequence
-stop_if_failed(select_dropdown_by_index_partial("ddlEffectiveDt", 0))
+stop_if_failed(select_dropdown_by_index_partial("EffectiveDate", 0))
 stop_if_failed(click_button("_ctl0_cphContent_btnLRPNext"))
 
-stop_if_failed(select_dropdown_by_index_partial("ddlLRPState", 33))
+stop_if_failed(select_dropdown_by_index_partial("StateSelection", 33))
 stop_if_failed(click_button("_ctl0_cphContent_btnLRPNext"))
 
-stop_if_failed(select_dropdown_by_index_partial("ddlLRPCommodity", 1))
+stop_if_failed(select_dropdown_by_index_partial("CommoditySelection", 1))
 stop_if_failed(click_button("_ctl0_cphContent_btnLRPNext"))
 
-stop_if_failed(select_dropdown_by_index_partial("ddlType", 9))
+stop_if_failed(select_dropdown_by_index_partial("TypeSelection", 9))
 stop_if_failed(click_button("_ctl0_cphContent_btnCreateLRPReport"))
 
 time.sleep(5)
