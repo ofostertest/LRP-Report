@@ -1,3 +1,13 @@
+from selenium import webdriver
+from selenium.webdriver.chrome.service import Service
+from selenium.webdriver.chrome.options import Options
+from selenium.webdriver.common.by import By
+from selenium.webdriver.support.ui import WebDriverWait
+from selenium.webdriver.support import expected_conditions as EC
+from google.oauth2.credentials import Credentials
+from google_auth_oauthlib.flow import InstalledAppFlow
+from google.auth.transport.requests import Request
+from googleapiclient.discovery import build
 import os
 import json
 import base64
@@ -5,200 +15,208 @@ import time
 import re
 import logging
 
-from selenium import webdriver
-from selenium.webdriver.chrome.service import Service
-from selenium.webdriver.chrome.options import Options
-from selenium.webdriver.common.by import By
-from selenium.webdriver.support.ui import WebDriverWait
-from selenium.webdriver.support import expected_conditions as EC
-
-from google.oauth2.credentials import Credentials
-from google_auth_oauthlib.flow import InstalledAppFlow
-from google.auth.transport.requests import Request
-from googleapiclient.discovery import build
-
+# ---------------------------------------------------
+# Logging
+# ---------------------------------------------------
 logging.basicConfig(level=logging.DEBUG)
-logging.debug("Starting LRP scraping script")
+logging.debug("Starting LRP script")
 
 os.environ["DISPLAY"] = ":99"
 
-# --- Google OAuth Setup ---
+# ---------------------------------------------------
+# Google OAuth
+# ---------------------------------------------------
 CREDENTIALS_B64 = os.getenv("GOOGLE_OAUTH_CREDENTIALS_B64")
 if not CREDENTIALS_B64:
-    raise EnvironmentError("Google OAuth credentials not found in environment!")
+    raise EnvironmentError("Missing Google OAuth credentials")
+
 credentials_json = base64.b64decode(CREDENTIALS_B64).decode("utf-8")
 credentials_dict = json.loads(credentials_json)
 
-CREDENTIALS_PATH = "credentials.json"
-with open(CREDENTIALS_PATH, "w") as f:
+with open("credentials.json", "w") as f:
     json.dump(credentials_dict, f)
 
 TOKEN_PATH = "token.json"
 SCOPES = ["https://www.googleapis.com/auth/spreadsheets"]
 
-def get_google_sheets_service():
+def get_google_creds():
     creds = None
     if os.path.exists(TOKEN_PATH):
         creds = Credentials.from_authorized_user_file(TOKEN_PATH, SCOPES)
-    
+
     if not creds or not creds.valid:
         if creds and creds.expired and creds.refresh_token:
-            logging.debug("Refreshing Google OAuth token...")
             creds.refresh(Request())
         else:
-            logging.debug("Starting new OAuth flow...")
-            flow = InstalledAppFlow.from_client_secrets_file(CREDENTIALS_PATH, SCOPES)
-            creds = flow.run_local_server(port=0, access_type='offline', prompt='consent')
+            flow = InstalledAppFlow.from_client_secrets_file(
+                "credentials.json", SCOPES
+            )
+            creds = flow.run_local_server(port=0)
 
-        with open(TOKEN_PATH, "w") as token_file:
-            token_file.write(creds.to_json())
-    
+        with open(TOKEN_PATH, "w") as token:
+            token.write(creds.to_json())
+
     return creds
 
-# --- Chrome Setup ---
+# ---------------------------------------------------
+# Selenium Setup
+# ---------------------------------------------------
 chrome_options = Options()
 chrome_options.add_argument("--headless")
-chrome_options.add_argument("--disable-gpu")
 chrome_options.add_argument("--no-sandbox")
 chrome_options.add_argument("--disable-dev-shm-usage")
+chrome_options.add_argument("--disable-gpu")
 
-service = Service("/usr/local/bin/chromedriver")
-driver = webdriver.Chrome(service=service, options=chrome_options)
-logging.debug("Chrome WebDriver initialized")
+driver = webdriver.Chrome(
+    service=Service("/usr/local/bin/chromedriver"),
+    options=chrome_options
+)
 
-# --- Utility Functions ---
-def stop_if_failed(step, msg="Critical error"):
-    if not step:
-        logging.error(msg)
-        driver.quit()
-        exit(1)
+print("Chrome WebDriver successfully initialized!")
 
-def select_dropdown_js(dropdown_id, option_index=0, timeout=20):
-    """Select a dropdown option using JS (works for dynamically populated selects)."""
-    try:
-        WebDriverWait(driver, timeout).until(
-            EC.presence_of_element_located((By.ID, dropdown_id))
-        )
-
-        # Wait until options are populated
-        start_time = time.time()
-        options_count = driver.execute_script(
-            f"return document.getElementById('{dropdown_id}').options.length;"
-        )
-        while options_count <= 1 and time.time() - start_time < timeout:
-            time.sleep(0.5)
-            options_count = driver.execute_script(
-                f"return document.getElementById('{dropdown_id}').options.length;"
-            )
-
-        if options_count <= 1:
-            raise Exception("Dropdown has no options to select")
-
-        # Select option using JS and dispatch 'change' event
-        driver.execute_script(f"""
-            document.getElementById('{dropdown_id}').selectedIndex = {option_index};
-            var event = new Event('change', {{ bubbles: true }});
-            document.getElementById('{dropdown_id}').dispatchEvent(event);
-        """)
-        logging.debug(f"Selected option index {option_index} in {dropdown_id}")
-        return True
-    except Exception as e:
-        logging.error(f"Failed selecting dropdown {dropdown_id}: {e}")
-        return False
-
-def click_next_button(timeout=15):
-    try:
-        button = WebDriverWait(driver, timeout).until(
-            EC.element_to_be_clickable((By.XPATH, "//input[@type='submit' and @value='Next >>']"))
-        )
-        button.click()
-        time.sleep(1)
-        logging.debug("Clicked Next >> button")
-        return True
-    except Exception as e:
-        logging.error(f"Failed clicking Next >> button: {e}")
-        return False
-
-# --- Navigate to LRP page ---
-try:
-    driver.set_page_load_timeout(180)
-    driver.get("https://public.rma.usda.gov/livestockreports/LRPReport.aspx")
-except Exception as e:
-    logging.error(f"Page load failed: {e}")
+# ---------------------------------------------------
+# Helpers
+# ---------------------------------------------------
+def fatal(msg):
+    logging.error(msg)
     driver.quit()
     exit(1)
 
-# --- Select Dropdowns and Navigate ---
-stop_if_failed(select_dropdown_js("EffectiveDate", 0))
-stop_if_failed(click_next_button())
+def wait_for_options(select_id, timeout=30):
+    start = time.time()
+    while time.time() - start < timeout:
+        count = driver.execute_script(
+            f"return document.getElementById('{select_id}')?.options.length || 0;"
+        )
+        if count > 1:
+            return True
+        time.sleep(0.5)
+    return False
 
-stop_if_failed(select_dropdown_js("StateSelection", 33))
-stop_if_failed(click_next_button())
+def select_dropdown_js(select_id, index):
+    try:
+        WebDriverWait(driver, 20).until(
+            EC.presence_of_element_located((By.ID, select_id))
+        )
 
-stop_if_failed(select_dropdown_js("CommoditySelection", 1))
-stop_if_failed(click_next_button())
+        if not wait_for_options(select_id):
+            raise Exception("Options never loaded")
 
-stop_if_failed(select_dropdown_js("TypeSelection", 9))
-stop_if_failed(click_next_button())
+        driver.execute_script(f"""
+            const sel = document.getElementById('{select_id}');
+            sel.selectedIndex = {index};
+            sel.dispatchEvent(new Event('change', {{ bubbles: true }}));
+        """)
+        logging.debug(f"Selected {select_id} index {index}")
+        time.sleep(1)
+        return True
 
-time.sleep(3)  # give table time to render
+    except Exception as e:
+        logging.error(f"Failed selecting dropdown {select_id}: {e}")
+        return False
 
-# --- Extract Table Data ---
+def click_next():
+    try:
+        btn = WebDriverWait(driver, 20).until(
+            EC.element_to_be_clickable(
+                (By.XPATH, "//input[@type='submit' and @value='Next >>']")
+            )
+        )
+        btn.click()
+        time.sleep(2)
+        return True
+    except Exception as e:
+        logging.error(f"Failed clicking Next >>: {e}")
+        return False
+
+# ---------------------------------------------------
+# Load Page
+# ---------------------------------------------------
+driver.get("https://public.rma.usda.gov/livestockreports/LRPReport.aspx")
+
+# ---------------------------------------------------
+# Workflow
+# ---------------------------------------------------
+if not select_dropdown_js("EffectiveDate", 0):
+    fatal("EffectiveDate failed")
+
+if not click_next():
+    fatal("Next failed")
+
+if not select_dropdown_js("StateSelection", 33):
+    fatal("StateSelection failed")
+
+if not click_next():
+    fatal("Next failed")
+
+if not select_dropdown_js("CommoditySelection", 1):
+    fatal("CommoditySelection failed")
+
+if not click_next():
+    fatal("Next failed")
+
+if not select_dropdown_js("TypeSelection", 9):
+    fatal("TypeSelection failed")
+
+if not click_next():
+    fatal("Final Next failed")
+
+# ---------------------------------------------------
+# Extract Table
+# ---------------------------------------------------
 try:
-    table_div = WebDriverWait(driver, 20).until(
+    report_div = WebDriverWait(driver, 30).until(
         EC.presence_of_element_located((By.ID, "oReportDiv"))
     )
-    table = table_div.find_element(By.TAG_NAME, "table")
+    table = report_div.find_element(By.TAG_NAME, "table")
     rows = table.find_elements(By.TAG_NAME, "tr")
-    selected_data = []
 
     target_values = {13, 17, 21, 26, 30, 34, 39, 43, 47}
-    found_values = {}
+    found = set()
+    selected_data = []
 
     for row in rows:
         cols = row.find_elements(By.TAG_NAME, "td")
-        if len(cols) > 13:
-            column_3_value = cols[2].text.strip()
-            if column_3_value.isdigit():
-                column_3_int = int(column_3_value)
-                if column_3_int in target_values and column_3_int not in found_values:
-                    raw_price_8 = cols[8].text.strip() if len(cols) > 8 else "N/A"
-                    raw_price_12 = cols[12].text.strip() if len(cols) > 12 else "N/A"
+        if len(cols) < 14:
+            continue
 
-                    def format_price(price_text):
-                        if not price_text.strip():
-                            return "N/A"
-                        match = re.search(r'(\$\d{1,6}(?:\.\d{0,2})?)', price_text)
-                        return match.group() if match else price_text
+        val = cols[2].text.strip()
+        if not val.isdigit():
+            continue
 
-                    formatted_price_8 = format_price(raw_price_8)
-                    formatted_price_12 = format_price(raw_price_12)
+        val = int(val)
+        if val in target_values and val not in found:
+            found.add(val)
 
-                    selected_data.append([
-                        cols[13].text if len(cols) > 13 else "N/A",
-                        formatted_price_8,
-                        formatted_price_12
-                    ])
+            def price(txt):
+                m = re.search(r"\$\d+(?:\.\d+)?", txt)
+                return m.group(0) if m else "N/A"
 
-                    found_values[column_3_int] = True
+            selected_data.append([
+                cols[13].text,
+                price(cols[8].text),
+                price(cols[12].text)
+            ])
 
-    logging.debug(f"Selected Data: {selected_data}")
-
-    # --- Update Google Sheets ---
-    service = build("sheets", "v4", credentials=get_google_sheets_service())
-    spreadsheet_id = "1eFn_RVcCw3MmdLRGASrYwoCbc1UPfFNVqq1Fbz2mvYg"
-    range_name = "Sheet1!C4"
-    sheet = service.spreadsheets()
-    sheet.values().update(
-        spreadsheetId=spreadsheet_id,
-        range=range_name,
-        valueInputOption="RAW",
-        body={"values": selected_data}
-    ).execute()
-    logging.debug("Data successfully saved to Google Sheets!")
+    print("Selected Data:", selected_data)
 
 except Exception as e:
-    logging.error(f"Error extracting table data: {e}")
+    fatal(f"Table extraction failed: {e}")
+
+# ---------------------------------------------------
+# Google Sheets
+# ---------------------------------------------------
+creds = get_google_creds()
+service = build("sheets", "v4", credentials=creds)
+
+service.spreadsheets().values().update(
+    spreadsheetId="1eFn_RVcCw3MmdLRGASrYwoCbc1UPfFNVqq1Fbz2mvYg",
+    range="Sheet1!C4",
+    valueInputOption="RAW",
+    body={"values": selected_data}
+).execute()
+
+print("Data successfully saved to Google Sheets")
 
 driver.quit()
 logging.debug("Script finished successfully")
