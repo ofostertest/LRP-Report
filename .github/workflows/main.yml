@@ -42,8 +42,19 @@ jobs:
       - name: Install dependencies
         run: |
           python3 -m pip install --upgrade pip
-          pip install selenium google-auth google-auth-oauthlib google-auth-httplib2 google-api-python-client gspread openpyxl pandas webdriver_manager    
-
+          pip install \
+            selenium \
+            requests \
+            beautifulsoup4 \
+            google-auth \
+            google-auth-oauthlib \
+            google-auth-httplib2 \
+            google-api-python-client \
+            gspread \
+            openpyxl \
+            pandas \
+            webdriver_manager
+            
       - name: Install jq
         run: sudo apt-get install -y jq
 
