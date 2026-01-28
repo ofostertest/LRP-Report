@@ -18,6 +18,12 @@ URL = "https://public.rma.usda.gov/livestockreports/LRPReport"
 SCOPES = ["https://www.googleapis.com/auth/spreadsheets"]
 SPREADSHEET_ID = "1eFn_RVcCw3MmdLRGASrYwoCbc1UPfFNVqq1Fbz2mvYg"
 
+STATE_VALUE = "38|North Dakota"
+COMMODITY_VALUE = "0801|Feeder Cattle"
+TYPE_VALUE = "809|Steers Weight 1"
+
+TARGET_VALUES = {13, 17, 21, 26, 30, 34, 39, 43, 47}
+
 # ---------------- Google Auth ----------------
 CREDENTIALS_B64 = os.getenv("GOOGLE_OAUTH_CREDENTIALS_B64")
 credentials_json = base64.b64decode(CREDENTIALS_B64).decode("utf-8")
@@ -106,13 +112,10 @@ resp = post_with_retry(session, URL, form_data)
 soup = BeautifulSoup(resp.text, "html.parser")
 
 # ---------------- Parse All Tables ----------------
-table_div = soup.find("div", {"id": "oReportDiv"})
-if not table_div:
-    raise Exception("Report table not found on page")
-
-tables = table_div.find_all("table", recursive=True)
+tables = soup.find_all("table")  # Search all tables on the page
 selected_data = []
-found = set()
+found = set()  # Track which target values have been found
+
 TARGET_VALUES = {13, 17, 21, 26, 30, 34, 39, 43, 47}
 
 def price(col):
