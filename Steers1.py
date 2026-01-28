@@ -1,19 +1,22 @@
 import requests
 from bs4 import BeautifulSoup
-import os
-import base64
 import re
+import os
+import json
+import base64
 import logging
+import time
 from google.oauth2.credentials import Credentials
 from google_auth_oauthlib.flow import InstalledAppFlow
 from google.auth.transport.requests import Request
 from googleapiclient.discovery import build
+from requests.exceptions import HTTPError
 
 logging.basicConfig(level=logging.INFO)
 
 URL = "https://public.rma.usda.gov/livestockreports/LRPReport"
-SPREADSHEET_ID = "1eFn_RVcCw3MmdLRGASrYwoCbc1UPfFNVqq1Fbz2mvYg"
 SCOPES = ["https://www.googleapis.com/auth/spreadsheets"]
+SPREADSHEET_ID = "1eFn_RVcCw3MmdLRGASrYwoCbc1UPfFNVqq1Fbz2mvYg"
 
 # ---------------- Google Auth ----------------
 CREDENTIALS_B64 = os.getenv("GOOGLE_OAUTH_CREDENTIALS_B64")
@@ -29,13 +32,38 @@ def get_sheets_service():
         if creds and creds.expired and creds.refresh_token:
             creds.refresh(Request())
         else:
-            flow = InstalledAppFlow.from_client_secrets_file(
-                "credentials.json", SCOPES
-            )
+            flow = InstalledAppFlow.from_client_secrets_file("credentials.json", SCOPES)
             creds = flow.run_local_server(port=0)
         with open("token.json", "w") as token:
             token.write(creds.to_json())
     return build("sheets", "v4", credentials=creds)
+
+# ---------------- Helpers ----------------
+def extract_hidden_fields(soup):
+    data = {}
+    for tag in soup.select("input[type=hidden]"):
+        if tag.get("name"):
+            data[tag["name"]] = tag.get("value", "")
+    return data
+
+def get_first_option_value(soup, select_id):
+    select = soup.find("select", {"id": select_id})
+    if not select:
+        raise Exception(f"Dropdown {select_id} not found")
+    option = select.find("option")
+    return option.get("value", "")
+
+def post_with_retry(session, url, data, max_retries=3):
+    for attempt in range(1, max_retries + 1):
+        try:
+            resp = session.post(url, data=data)
+            resp.raise_for_status()
+            return resp
+        except HTTPError as e:
+            logging.warning(f"POST attempt {attempt} failed: {e}")
+            if attempt == max_retries:
+                raise
+            time.sleep(2)
 
 # ---------------- Start Session ----------------
 session = requests.Session()
@@ -48,39 +76,33 @@ session.headers.update({
 resp = session.get(URL)
 resp.raise_for_status()
 soup = BeautifulSoup(resp.text, "html.parser")
-
-def extract_hidden_fields(soup):
-    data = {}
-    for tag in soup.select("input[type=hidden]"):
-        if tag.get("name"):
-            data[tag["name"]] = tag.get("value", "")
-    return data
-
 form_data = extract_hidden_fields(soup)
-form_data["EffectiveDate"] = soup.find("select", {"id": "EffectiveDate"}).find("option").get("value")
-form_data["buttonType"] = "Next >>"
 
-# -------- Step 2: State Selection --------
+# -------- Step 2: Effective Date --------
+form_data["EffectiveDate"] = get_first_option_value(soup, "EffectiveDate")
+form_data["buttonType"] = "Next >>"
+resp = post_with_retry(session, URL, form_data)
+soup = BeautifulSoup(resp.text, "html.parser")
+form_data = extract_hidden_fields(soup)
+
+# -------- Step 3: State --------
 form_data["StateSelection"] = "38|North Dakota"
 form_data["buttonType"] = "Next >>"
-resp = session.post(URL, data=form_data)
-resp.raise_for_status()
+resp = post_with_retry(session, URL, form_data)
 soup = BeautifulSoup(resp.text, "html.parser")
 form_data = extract_hidden_fields(soup)
 
-# -------- Step 3: Commodity Selection --------
+# -------- Step 4: Commodity --------
 form_data["CommoditySelection"] = "0801|Feeder Cattle"
 form_data["buttonType"] = "Next >>"
-resp = session.post(URL, data=form_data)
-resp.raise_for_status()
+resp = post_with_retry(session, URL, form_data)
 soup = BeautifulSoup(resp.text, "html.parser")
 form_data = extract_hidden_fields(soup)
 
-# -------- Step 4: Type Selection --------
+# -------- Step 5: Type --------
 form_data["TypeSelection"] = "809|Steers Weight 1"
 form_data["buttonType"] = "Create Report"
-resp = session.post(URL, data=form_data)
-resp.raise_for_status()
+resp = post_with_retry(session, URL, form_data)
 soup = BeautifulSoup(resp.text, "html.parser")
 
 # ---------------- Parse All Tables ----------------
@@ -129,7 +151,7 @@ sheet = service.spreadsheets()
 
 sheet.values().update(
     spreadsheetId=SPREADSHEET_ID,
-    range="Sheet1!C15",  # Adjust range for Steers1
+    range="Sheet1!C15",
     valueInputOption="RAW",
     body={"values": selected_data}
 ).execute()
