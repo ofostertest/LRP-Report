@@ -79,8 +79,8 @@ resp.raise_for_status()
 soup = BeautifulSoup(resp.text, "html.parser")
 form_data = extract_hidden_fields(soup)
 
-# -------- Step 3: State --------
-form_data["StateSelection"] = get_first_option_value(soup, "StateSelection")
+# -------- Step 3: State (fixed) --------
+form_data["StateSelection"] = "38|North Dakota"
 form_data["buttonType"] = "Next >>"
 
 resp = session.post(URL, data=form_data)
@@ -88,8 +88,8 @@ resp.raise_for_status()
 soup = BeautifulSoup(resp.text, "html.parser")
 form_data = extract_hidden_fields(soup)
 
-# -------- Step 4: Commodity --------
-form_data["CommoditySelection"] = get_first_option_value(soup, "CommoditySelection")
+# -------- Step 4: Commodity (fixed) --------
+form_data["CommoditySelection"] = "0801|Feeder Cattle"
 form_data["buttonType"] = "Next >>"
 
 resp = session.post(URL, data=form_data)
@@ -97,8 +97,8 @@ resp.raise_for_status()
 soup = BeautifulSoup(resp.text, "html.parser")
 form_data = extract_hidden_fields(soup)
 
-# -------- Step 5: Type --------
-form_data["TypeSelection"] = get_first_option_value(soup, "TypeSelection")
+# -------- Step 5: Type (fixed) --------
+form_data["TypeSelection"] = "817|Unborn Bulls & Heifers"
 form_data["buttonType"] = "Create LRP Report"
 
 resp = session.post(URL, data=form_data)
@@ -107,8 +107,10 @@ soup = BeautifulSoup(resp.text, "html.parser")
 
 # ---------------- Parse Table ----------------
 table_div = soup.find("div", {"id": "oReportDiv"})
-table = table_div.find("table")
+if not table_div:
+    raise Exception("Report table not found on page")
 
+table = table_div.find("table")
 rows = table.find_all("tr")
 selected_data = []
 
