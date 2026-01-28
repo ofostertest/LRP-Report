@@ -80,13 +80,39 @@ driver = webdriver.Chrome(service=service, options=chrome_options)
 print("Chrome WebDriver successfully initialized!")
 
 try:
-	driver.set_page_load_timeout(180)  # Increase timeout to 3 minutes
-	driver.get("https://public.rma.usda.gov/livestockreports/LRPReport.aspx")
-except Exception as e:
-	logging.error(f"Page load failed: {e}")
-	driver.quit()
-	exit(1)
+    driver.set_page_load_timeout(180)
+    driver.get("https://public.rma.usda.gov/livestockreports/LRPReport.aspx")
 
+    iframes = driver.find_elements(By.TAG_NAME, "iframe")
+    print(f"Found {len(iframes)} iframe(s)")
+
+    for i, frame in enumerate(iframes):
+        print(i, frame.get_attribute("id"), frame.get_attribute("name"))
+
+except Exception as e:
+    logging.error(f"Page load failed: {e}")
+    driver.quit()
+    exit(1)
+	
+switch_to_lrp_iframe()
+
+def switch_to_lrp_iframe():
+	WebDriverWait(driver, 30).until(
+        EC.presence_of_element_located((By.TAG_NAME, "iframe"))
+    )
+
+    iframes = driver.find_elements(By.TAG_NAME, "iframe")
+
+    for frame in iframes:
+        driver.switch_to.frame(frame)
+        # quick test: do we see any selects?
+        selects = driver.find_elements(By.TAG_NAME, "select")
+        if selects:
+            print("Switched into correct iframe")
+            return True
+        driver.switch_to.default_content()
+
+    raise Exception("Could not find iframe containing LRP form")
 
 def select_dropdown_by_index_partial(id_fragment, index):
     try:
@@ -116,20 +142,26 @@ def select_dropdown_by_index_partial(id_fragment, index):
         return False
 
 def click_button(button_id):
-	try:
-		button_element = WebDriverWait(driver, 10).until(
-			EC.element_to_be_clickable((By.ID, button_id))
-		)
-		button_element.click()
-		WebDriverWait(driver, 30).until(
-    		lambda d: d.execute_script("return document.readyState") == "complete"
-		)
-		time.sleep(2)
-		print(f"Clicked button {button_id}")
-		return True
-	except Exception as e:
-		print(f"Error clicking button {button_id}: {e}")
-		return False
+    try:
+        button_element = WebDriverWait(driver, 30).until(
+            EC.element_to_be_clickable((By.ID, button_id))
+        )
+        button_element.click()
+
+        WebDriverWait(driver, 30).until(
+            lambda d: d.execute_script("return document.readyState") == "complete"
+        )
+
+        # 🔑 ASP.NET reloads iframe — must re-enter
+        driver.switch_to.default_content()
+        switch_to_lrp_iframe()
+
+        time.sleep(2)
+        print(f"Clicked button {button_id}")
+        return True
+    except Exception as e:
+        print(f"Error clicking button {button_id}: {e}")
+        return False
 
 def stop_if_failed(step):
 	if not step:
