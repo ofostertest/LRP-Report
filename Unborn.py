@@ -122,7 +122,7 @@ if not table_div:
 
 tables = table_div.find_all("table", recursive=True)
 selected_data = []
-found = set()
+found = set()  # global set across all tables
 
 for table in tables:
     rows = table.find_all("tr")
@@ -132,6 +132,7 @@ for table in tables:
             val = cols[2].get_text(strip=True)
             if val.isdigit():
                 val_int = int(val)
+                # Only append if this target value hasn't been found yet
                 if val_int in TARGET_VALUES and val_int not in found:
                     selected_data.append([
                         cols[13].get_text(strip=True),  # Column 13
