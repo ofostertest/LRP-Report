@@ -1,48 +1,32 @@
-from selenium import webdriver
-from selenium.webdriver.chrome.service import Service
-from selenium.webdriver.chrome.options import Options
-from selenium.webdriver.common.by import By
-from selenium.webdriver.support.ui import WebDriverWait
-from selenium.webdriver.support import expected_conditions as EC
+import requests
+from bs4 import BeautifulSoup
+import re
+import os
+import json
+import base64
+import logging
 from google.oauth2.credentials import Credentials
 from google_auth_oauthlib.flow import InstalledAppFlow
 from google.auth.transport.requests import Request
 from googleapiclient.discovery import build
-import os
-import json
-import base64
-import time
-import re
-import logging
 
-# ---------------------------------------------------
-# Logging
-# ---------------------------------------------------
-logging.basicConfig(level=logging.DEBUG)
-logging.debug("Starting LRP script")
+logging.basicConfig(level=logging.INFO)
 
-os.environ["DISPLAY"] = ":99"
+BASE_URL = "https://public.rma.usda.gov/livestockreports/LRPReport.aspx"
 
-# ---------------------------------------------------
-# Google OAuth
-# ---------------------------------------------------
+# ------------------ Google Sheets ------------------
+
+SCOPES = ["https://www.googleapis.com/auth/spreadsheets"]
 CREDENTIALS_B64 = os.getenv("GOOGLE_OAUTH_CREDENTIALS_B64")
-if not CREDENTIALS_B64:
-    raise EnvironmentError("Missing Google OAuth credentials")
 
 credentials_json = base64.b64decode(CREDENTIALS_B64).decode("utf-8")
-credentials_dict = json.loads(credentials_json)
-
 with open("credentials.json", "w") as f:
-    json.dump(credentials_dict, f)
+    f.write(credentials_json)
 
-TOKEN_PATH = "token.json"
-SCOPES = ["https://www.googleapis.com/auth/spreadsheets"]
-
-def get_google_creds():
+def get_google_sheets_service():
     creds = None
-    if os.path.exists(TOKEN_PATH):
-        creds = Credentials.from_authorized_user_file(TOKEN_PATH, SCOPES)
+    if os.path.exists("token.json"):
+        creds = Credentials.from_authorized_user_file("token.json", SCOPES)
 
     if not creds or not creds.valid:
         if creds and creds.expired and creds.refresh_token:
@@ -53,170 +37,116 @@ def get_google_creds():
             )
             creds = flow.run_local_server(port=0)
 
-        with open(TOKEN_PATH, "w") as token:
+        with open("token.json", "w") as token:
             token.write(creds.to_json())
 
-    return creds
+    return build("sheets", "v4", credentials=creds)
 
-# ---------------------------------------------------
-# Selenium Setup
-# ---------------------------------------------------
-chrome_options = Options()
-chrome_options.add_argument("--headless")
-chrome_options.add_argument("--no-sandbox")
-chrome_options.add_argument("--disable-dev-shm-usage")
-chrome_options.add_argument("--disable-gpu")
+# ------------------ ASP.NET helpers ------------------
 
-driver = webdriver.Chrome(
-    service=Service("/usr/local/bin/chromedriver"),
-    options=chrome_options
-)
+def extract_hidden_fields(soup):
+    data = {}
+    for tag in soup.select("input[type='hidden']"):
+        data[tag.get("name")] = tag.get("value", "")
+    return data
 
-print("Chrome WebDriver successfully initialized!")
+def post_form(session, soup, updates):
+    payload = extract_hidden_fields(soup)
+    payload.update(updates)
+    response = session.post(BASE_URL, data=payload)
+    response.raise_for_status()
+    return BeautifulSoup(response.text, "html.parser")
 
-# ---------------------------------------------------
-# Helpers
-# ---------------------------------------------------
-def fatal(msg):
-    logging.error(msg)
-    driver.quit()
-    exit(1)
+# ------------------ Scraper ------------------
 
-def wait_for_options(select_id, timeout=30):
-    start = time.time()
-    while time.time() - start < timeout:
-        count = driver.execute_script(
-            f"return document.getElementById('{select_id}')?.options.length || 0;"
-        )
-        if count > 1:
-            return True
-        time.sleep(0.5)
-    return False
+session = requests.Session()
+session.headers.update({
+    "User-Agent": "Mozilla/5.0"
+})
 
-def select_dropdown_js(select_id, index):
-    try:
-        WebDriverWait(driver, 20).until(
-            EC.presence_of_element_located((By.ID, select_id))
-        )
+# Step 1: Initial page
+resp = session.get(BASE_URL)
+resp.raise_for_status()
+soup = BeautifulSoup(resp.text, "html.parser")
 
-        if not wait_for_options(select_id):
-            raise Exception("Options never loaded")
+# ---- Effective Date (first option) ----
+effective_options = soup.select("#EffectiveDate option")
+effective_value = effective_options[1]["value"]  # skip empty option
 
-        driver.execute_script(f"""
-            const sel = document.getElementById('{select_id}');
-            sel.selectedIndex = {index};
-            sel.dispatchEvent(new Event('change', {{ bubbles: true }}));
-        """)
-        logging.debug(f"Selected {select_id} index {index}")
-        time.sleep(1)
-        return True
+soup = post_form(session, soup, {
+    "EffectiveDate": effective_value,
+    "buttonType": "Next >>"
+})
 
-    except Exception as e:
-        logging.error(f"Failed selecting dropdown {select_id}: {e}")
-        return False
+# ---- State ----
+state_options = soup.select("#StateSelection option")
+state_value = state_options[33]["value"]
 
-def click_next():
-    try:
-        btn = WebDriverWait(driver, 20).until(
-            EC.element_to_be_clickable(
-                (By.XPATH, "//input[@type='submit' and @value='Next >>']")
-            )
-        )
-        btn.click()
-        time.sleep(2)
-        return True
-    except Exception as e:
-        logging.error(f"Failed clicking Next >>: {e}")
-        return False
+soup = post_form(session, soup, {
+    "StateSelection": state_value,
+    "buttonType": "Next >>"
+})
 
-# ---------------------------------------------------
-# Load Page
-# ---------------------------------------------------
-driver.get("https://public.rma.usda.gov/livestockreports/LRPReport.aspx")
+# ---- Commodity ----
+commodity_options = soup.select("#CommoditySelection option")
+commodity_value = commodity_options[1]["value"]
 
-# ---------------------------------------------------
-# Workflow
-# ---------------------------------------------------
-if not select_dropdown_js("EffectiveDate", 0):
-    fatal("EffectiveDate failed")
+soup = post_form(session, soup, {
+    "CommoditySelection": commodity_value,
+    "buttonType": "Next >>"
+})
 
-if not click_next():
-    fatal("Next failed")
+# ---- Type ----
+type_options = soup.select("#TypeSelection option")
+type_value = type_options[9]["value"]
 
-if not select_dropdown_js("StateSelection", 33):
-    fatal("StateSelection failed")
+soup = post_form(session, soup, {
+    "TypeSelection": type_value,
+    "buttonType": "Next >>"
+})
 
-if not click_next():
-    fatal("Next failed")
+# ------------------ Parse Table ------------------
 
-if not select_dropdown_js("CommoditySelection", 1):
-    fatal("CommoditySelection failed")
+table = soup.select_one("#oReportDiv table")
+rows = table.select("tr")
 
-if not click_next():
-    fatal("Next failed")
+target_values = {13, 17, 21, 26, 30, 34, 39, 43, 47}
+selected_data = []
+found = set()
 
-if not select_dropdown_js("TypeSelection", 9):
-    fatal("TypeSelection failed")
+def extract_price(text):
+    match = re.search(r"\$\d+(?:\.\d{1,2})?", text)
+    return match.group() if match else "N/A"
 
-if not click_next():
-    fatal("Final Next failed")
+for row in rows:
+    cols = [c.get_text(strip=True) for c in row.select("td")]
+    if len(cols) < 14:
+        continue
 
-# ---------------------------------------------------
-# Extract Table
-# ---------------------------------------------------
-try:
-    report_div = WebDriverWait(driver, 30).until(
-        EC.presence_of_element_located((By.ID, "oReportDiv"))
-    )
-    table = report_div.find_element(By.TAG_NAME, "table")
-    rows = table.find_elements(By.TAG_NAME, "tr")
-
-    target_values = {13, 17, 21, 26, 30, 34, 39, 43, 47}
-    found = set()
-    selected_data = []
-
-    for row in rows:
-        cols = row.find_elements(By.TAG_NAME, "td")
-        if len(cols) < 14:
-            continue
-
-        val = cols[2].text.strip()
-        if not val.isdigit():
-            continue
-
-        val = int(val)
+    if cols[2].isdigit():
+        val = int(cols[2])
         if val in target_values and val not in found:
+            selected_data.append([
+                cols[13],
+                extract_price(cols[8]),
+                extract_price(cols[12]),
+            ])
             found.add(val)
 
-            def price(txt):
-                m = re.search(r"\$\d+(?:\.\d+)?", txt)
-                return m.group(0) if m else "N/A"
+print("Selected Data:")
+for r in selected_data:
+    print(r)
 
-            selected_data.append([
-                cols[13].text,
-                price(cols[8].text),
-                price(cols[12].text)
-            ])
+# ------------------ Google Sheets Update ------------------
 
-    print("Selected Data:", selected_data)
+service = get_google_sheets_service()
+sheet = service.spreadsheets()
 
-except Exception as e:
-    fatal(f"Table extraction failed: {e}")
-
-# ---------------------------------------------------
-# Google Sheets
-# ---------------------------------------------------
-creds = get_google_creds()
-service = build("sheets", "v4", credentials=creds)
-
-service.spreadsheets().values().update(
+sheet.values().update(
     spreadsheetId="1eFn_RVcCw3MmdLRGASrYwoCbc1UPfFNVqq1Fbz2mvYg",
     range="Sheet1!C4",
     valueInputOption="RAW",
     body={"values": selected_data}
 ).execute()
 
-print("Data successfully saved to Google Sheets")
-
-driver.quit()
-logging.debug("Script finished successfully")
+print("✅ Data successfully written to Google Sheets")
