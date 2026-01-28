@@ -1,9 +1,7 @@
 import requests
 from bs4 import BeautifulSoup
-import time
 import re
 import os
-import json
 import base64
 import logging
 from google.oauth2.credentials import Credentials
@@ -13,8 +11,16 @@ from googleapiclient.discovery import build
 
 logging.basicConfig(level=logging.INFO)
 
+# ---------------- Constants ----------------
 URL = "https://public.rma.usda.gov/livestockreports/LRPReport"
 SCOPES = ["https://www.googleapis.com/auth/spreadsheets"]
+SPREADSHEET_ID = "1eFn_RVcCw3MmdLRGASrYwoCbc1UPfFNVqq1Fbz2mvYg"
+
+STATE_VALUE = "38|North Dakota"
+COMMODITY_VALUE = "0801|Feeder Cattle"
+TYPE_VALUE = "817|Unborn Bulls & Heifers"
+
+TARGET_VALUES = {13, 17, 21, 26, 30, 34, 39, 43, 47}
 
 # ---------------- Google Auth ----------------
 CREDENTIALS_B64 = os.getenv("GOOGLE_OAUTH_CREDENTIALS_B64")
@@ -56,6 +62,11 @@ def get_first_option_value(soup, select_id):
     option = select.find("option")
     return option.get("value", "")
 
+def price(col):
+    txt = col.get_text(strip=True)
+    m = re.search(r"\$\d+(?:\.\d{2})?", txt)
+    return m.group() if m else "N/A"
+
 # ---------------- Start Session ----------------
 session = requests.Session()
 session.headers.update({
@@ -67,10 +78,9 @@ session.headers.update({
 resp = session.get(URL)
 resp.raise_for_status()
 soup = BeautifulSoup(resp.text, "html.parser")
-
 form_data = extract_hidden_fields(soup)
 
-# -------- Step 2: Effective Date (most recent = first option) --------
+# -------- Step 2: Effective Date (most recent) --------
 form_data["EffectiveDate"] = get_first_option_value(soup, "EffectiveDate")
 form_data["buttonType"] = "Next >>"
 
@@ -79,8 +89,8 @@ resp.raise_for_status()
 soup = BeautifulSoup(resp.text, "html.parser")
 form_data = extract_hidden_fields(soup)
 
-# -------- Step 3: State (fixed) --------
-form_data["StateSelection"] = "38|North Dakota"
+# -------- Step 3: State --------
+form_data["StateSelection"] = STATE_VALUE
 form_data["buttonType"] = "Next >>"
 
 resp = session.post(URL, data=form_data)
@@ -88,8 +98,8 @@ resp.raise_for_status()
 soup = BeautifulSoup(resp.text, "html.parser")
 form_data = extract_hidden_fields(soup)
 
-# -------- Step 4: Commodity (fixed) --------
-form_data["CommoditySelection"] = "0801|Feeder Cattle"
+# -------- Step 4: Commodity --------
+form_data["CommoditySelection"] = COMMODITY_VALUE
 form_data["buttonType"] = "Next >>"
 
 resp = session.post(URL, data=form_data)
@@ -97,31 +107,23 @@ resp.raise_for_status()
 soup = BeautifulSoup(resp.text, "html.parser")
 form_data = extract_hidden_fields(soup)
 
-# -------- Step 5: Type (fixed) --------
-form_data["TypeSelection"] = "817|Unborn Bulls & Heifers"
+# -------- Step 5: Type --------
+form_data["TypeSelection"] = TYPE_VALUE
 form_data["buttonType"] = "Create Report"
 
 resp = session.post(URL, data=form_data)
 resp.raise_for_status()
 soup = BeautifulSoup(resp.text, "html.parser")
 
-# ---------------- Parse Table ----------------
+# ---------------- Parse All Tables ----------------
 table_div = soup.find("div", {"id": "oReportDiv"})
 if not table_div:
     raise Exception("Report table not found on page")
 
-tables = table_div.find_all("table")  # list of tables
+tables = table_div.find_all("table", recursive=True)
 selected_data = []
-
-target_values = {13, 17, 21, 26, 30, 34, 39, 43, 47}
 found = set()
 
-def price(col):
-    txt = col.get_text(strip=True)
-    m = re.search(r"\$\d+(?:\.\d{2})?", txt)
-    return m.group() if m else "N/A"
-
-# Loop over all tables
 for table in tables:
     rows = table.find_all("tr")
     for row in rows:
@@ -130,11 +132,11 @@ for table in tables:
             val = cols[2].get_text(strip=True)
             if val.isdigit():
                 val_int = int(val)
-                if val_int in target_values and val_int not in found:
+                if val_int in TARGET_VALUES and val_int not in found:
                     selected_data.append([
-                        cols[13].get_text(strip=True),  # column 13
-                        price(cols[8]),                 # column 8
-                        cols[11].get_text(strip=True)   # column 11
+                        cols[13].get_text(strip=True),  # Column 13
+                        price(cols[8]),                 # Column 8
+                        cols[11].get_text(strip=True)   # Column 11
                     ])
                     found.add(val_int)
 
@@ -145,7 +147,7 @@ service = get_sheets_service()
 sheet = service.spreadsheets()
 
 sheet.values().update(
-    spreadsheetId="1eFn_RVcCw3MmdLRGASrYwoCbc1UPfFNVqq1Fbz2mvYg",
+    spreadsheetId=SPREADSHEET_ID,
     range="Sheet1!C4",
     valueInputOption="RAW",
     body={"values": selected_data}
