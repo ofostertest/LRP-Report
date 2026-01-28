@@ -97,14 +97,15 @@ except Exception as e:
 switch_to_lrp_iframe()
 
 def switch_to_lrp_iframe():
-	WebDriverWait(driver, 30).until(
+    WebDriverWait(driver, 30).until(
         EC.presence_of_element_located((By.TAG_NAME, "iframe"))
     )
-
+	
     iframes = driver.find_elements(By.TAG_NAME, "iframe")
-
+	
     for frame in iframes:
         driver.switch_to.frame(frame)
+        
         # quick test: do we see any selects?
         selects = driver.find_elements(By.TAG_NAME, "select")
         if selects:
