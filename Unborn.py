@@ -2,7 +2,7 @@ from selenium import webdriver
 from selenium.webdriver.chrome.service import Service
 from selenium.webdriver.chrome.options import Options
 from selenium.webdriver.common.by import By
-from selenium.webdriver.support.ui import Select, WebDriverWait
+from selenium.webdriver.support.ui import WebDriverWait
 from selenium.webdriver.support import expected_conditions as EC
 from google.oauth2.credentials import Credentials
 from google_auth_oauthlib.flow import InstalledAppFlow
@@ -72,45 +72,41 @@ def stop_if_failed(step, msg="Critical error"):
         driver.quit()
         exit(1)
 
-def select_dropdown_by_id(dropdown_id, index, max_attempts=5):
-    for attempt in range(1, max_attempts + 1):
-        try:
-            print(f"[Attempt {attempt}] Waiting for dropdown: {dropdown_id}")
-            dropdown_element = WebDriverWait(driver, 10).until(
-                EC.presence_of_element_located((By.ID, dropdown_id))
-            )
-            if not dropdown_element.is_displayed():
-                raise Exception("Dropdown not visible yet")
-            
-            dropdown = Select(dropdown_element)
-            dropdown.select_by_index(index)
-            
-            # Trigger JS change in case of postback
-            driver.execute_script(
-                "arguments[0].dispatchEvent(new Event('change'))", dropdown_element
-            )
-            time.sleep(1)
-            print(f"Successfully selected index {index} from {dropdown_id}")
-            return True
-        except Exception as e:
-            print(f"Dropdown {dropdown_id} not ready yet on attempt {attempt}: {e}")
-            time.sleep(1)
-    print(f"Failed selecting dropdown {dropdown_id} after {max_attempts} attempts")
-    return False
+def select_custom_dropdown(dropdown_id, option_index=0):
+    try:
+        # Wait for the dropdown (the visible clickable div)
+        dropdown = WebDriverWait(driver, 15).until(
+            EC.element_to_be_clickable((By.ID, dropdown_id))
+        )
+        dropdown.click()  # open the dropdown
+        time.sleep(0.5)  # allow options to render
+
+        # Locate the actual <option> elements inside the <select>
+        options = driver.find_elements(By.XPATH, f"//select[@id='{dropdown_id}']/option")
+        if not options:
+            raise Exception(f"No options found for dropdown {dropdown_id}")
+
+        # Click the option by index
+        options[option_index].click()
+        time.sleep(0.5)
+        print(f"Selected option index {option_index} from {dropdown_id}")
+        return True
+
+    except Exception as e:
+        print(f"Failed selecting dropdown {dropdown_id}: {e}")
+        return False
 
 def click_next_button():
-    try:
+     try:
         button = WebDriverWait(driver, 10).until(
-            EC.element_to_be_clickable(
-                (By.XPATH, "//input[@type='submit' and @value='Next >>']")
-            )
+            EC.element_to_be_clickable((By.XPATH, "//input[@type='submit' and @value='Next >>']"))
         )
         button.click()
         time.sleep(1)
-        print("Clicked 'Next >>' button")
+        print("Clicked Next >> button")
         return True
     except Exception as e:
-        print(f"Error clicking 'Next >>' button: {e}")
+        print(f"Failed clicking Next >> button: {e}")
         return False
 
 # --- Navigate to LRP page ---
@@ -123,16 +119,16 @@ except Exception as e:
     exit(1)
 
 # --- Select Dropdowns and Click Next ---
-stop_if_failed(select_dropdown_by_id("EffectiveDate", 0))
+stop_if_failed(select_custom_dropdown("EffectiveDate", 0))
 stop_if_failed(click_next_button())
 
-stop_if_failed(select_dropdown_by_id("StateSelection", 33))
+stop_if_failed(select_custom_dropdown("StateSelection", 33))
 stop_if_failed(click_next_button())
 
-stop_if_failed(select_dropdown_by_id("CommoditySelection", 1))
+stop_if_failed(select_custom_dropdown("CommoditySelection", 1))
 stop_if_failed(click_next_button())
 
-stop_if_failed(select_dropdown_by_id("TypeSelection", 9))
+stop_if_failed(select_custom_dropdown("TypeSelection", 9))
 stop_if_failed(click_next_button())
 
 time.sleep(5)
