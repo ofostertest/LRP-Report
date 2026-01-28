@@ -1,15 +1,15 @@
 import os
-import time
 import json
 import base64
-import logging
+import time
 import re
+import logging
 
 from selenium import webdriver
 from selenium.webdriver.chrome.service import Service
 from selenium.webdriver.chrome.options import Options
 from selenium.webdriver.common.by import By
-from selenium.webdriver.support.ui import WebDriverWait, Select
+from selenium.webdriver.support.ui import WebDriverWait
 from selenium.webdriver.support import expected_conditions as EC
 
 from google.oauth2.credentials import Credentials
@@ -18,7 +18,7 @@ from google.auth.transport.requests import Request
 from googleapiclient.discovery import build
 
 logging.basicConfig(level=logging.DEBUG)
-logging.debug("Starting LRP scraper")
+logging.debug("Starting LRP scraping script")
 
 os.environ["DISPLAY"] = ":99"
 
@@ -26,7 +26,6 @@ os.environ["DISPLAY"] = ":99"
 CREDENTIALS_B64 = os.getenv("GOOGLE_OAUTH_CREDENTIALS_B64")
 if not CREDENTIALS_B64:
     raise EnvironmentError("Google OAuth credentials not found in environment!")
-
 credentials_json = base64.b64decode(CREDENTIALS_B64).decode("utf-8")
 credentials_dict = json.loads(credentials_json)
 
@@ -63,80 +62,86 @@ chrome_options.add_argument("--disable-gpu")
 chrome_options.add_argument("--no-sandbox")
 chrome_options.add_argument("--disable-dev-shm-usage")
 
-logging.debug("Starting Chrome WebDriver")
 service = Service("/usr/local/bin/chromedriver")
 driver = webdriver.Chrome(service=service, options=chrome_options)
 logging.debug("Chrome WebDriver initialized")
 
 # --- Utility Functions ---
-def select_dropdown(dropdown_id, option_index=0, timeout=20):
-    """Wait for a <select> dropdown to populate and select by index"""
+def stop_if_failed(step, msg="Critical error"):
+    if not step:
+        logging.error(msg)
+        driver.quit()
+        exit(1)
+
+def select_dropdown_js(dropdown_id, option_index=0, timeout=20):
+    """Select a dropdown option using JS (works for dynamically populated selects)."""
     try:
-        select_elem = WebDriverWait(driver, timeout).until(
+        WebDriverWait(driver, timeout).until(
             EC.presence_of_element_located((By.ID, dropdown_id))
         )
 
-        # Wait until the dropdown has at least one non-empty option
-        WebDriverWait(driver, timeout).until(
-            lambda d: len([opt for opt in select_elem.find_elements(By.TAG_NAME, "option") if opt.text.strip()]) > 0
+        # Wait until options are populated
+        start_time = time.time()
+        options_count = driver.execute_script(
+            f"return document.getElementById('{dropdown_id}').options.length;"
         )
+        while options_count <= 1 and time.time() - start_time < timeout:
+            time.sleep(0.5)
+            options_count = driver.execute_script(
+                f"return document.getElementById('{dropdown_id}').options.length;"
+            )
 
-        options = select_elem.find_elements(By.TAG_NAME, "option")
-        logging.debug(f"{dropdown_id} has {len(options)} options")
-        dropdown = Select(select_elem)
-        dropdown.select_by_index(option_index)
-        logging.debug(f"Selected option {option_index} from {dropdown_id}")
-        time.sleep(0.5)
+        if options_count <= 1:
+            raise Exception("Dropdown has no options to select")
+
+        # Select option using JS and dispatch 'change' event
+        driver.execute_script(f"""
+            document.getElementById('{dropdown_id}').selectedIndex = {option_index};
+            var event = new Event('change', {{ bubbles: true }});
+            document.getElementById('{dropdown_id}').dispatchEvent(event);
+        """)
+        logging.debug(f"Selected option index {option_index} in {dropdown_id}")
         return True
     except Exception as e:
         logging.error(f"Failed selecting dropdown {dropdown_id}: {e}")
         return False
 
 def click_next_button(timeout=15):
-    """Click the 'Next >>' button"""
     try:
         button = WebDriverWait(driver, timeout).until(
             EC.element_to_be_clickable((By.XPATH, "//input[@type='submit' and @value='Next >>']"))
         )
         button.click()
-        logging.debug("Clicked Next >> button")
         time.sleep(1)
+        logging.debug("Clicked Next >> button")
         return True
     except Exception as e:
         logging.error(f"Failed clicking Next >> button: {e}")
         return False
 
-def stop_if_failed(success, msg="Critical error"):
-    """Stop the script if a step failed"""
-    if not success:
-        logging.error(msg)
-        driver.quit()
-        exit(1)
-
 # --- Navigate to LRP page ---
 try:
     driver.set_page_load_timeout(180)
     driver.get("https://public.rma.usda.gov/livestockreports/LRPReport.aspx")
-    logging.debug("Page loaded successfully")
 except Exception as e:
     logging.error(f"Page load failed: {e}")
     driver.quit()
     exit(1)
 
-# --- Select Dropdowns and Click Next ---
-stop_if_failed(select_dropdown("EffectiveDate", 0))
+# --- Select Dropdowns and Navigate ---
+stop_if_failed(select_dropdown_js("EffectiveDate", 0))
 stop_if_failed(click_next_button())
 
-stop_if_failed(select_dropdown("StateSelection", 33))
+stop_if_failed(select_dropdown_js("StateSelection", 33))
 stop_if_failed(click_next_button())
 
-stop_if_failed(select_dropdown("CommoditySelection", 1))
+stop_if_failed(select_dropdown_js("CommoditySelection", 1))
 stop_if_failed(click_next_button())
 
-stop_if_failed(select_dropdown("TypeSelection", 9))
+stop_if_failed(select_dropdown_js("TypeSelection", 9))
 stop_if_failed(click_next_button())
 
-time.sleep(5)  # wait for table to render
+time.sleep(3)  # give table time to render
 
 # --- Extract Table Data ---
 try:
