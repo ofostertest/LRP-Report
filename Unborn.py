@@ -77,22 +77,42 @@ except Exception as e:
     exit(1)
 
 # Dropdown selection function using partial ID
-def select_dropdown_by_index_partial(id_fragment, index):
-    try:
-        print(f"Waiting for dropdown containing id: {id_fragment}")
-        dropdown_element = WebDriverWait(driver, 30).until(
-            EC.visibility_of_element_located((By.XPATH, f"//select[contains(@id,'{id_fragment}')]"))
-        )
-        dropdown = Select(dropdown_element)
-        dropdown.select_by_index(index)
-        # Trigger change event for ASP.NET postback
-        driver.execute_script("arguments[0].dispatchEvent(new Event('change'))", dropdown_element)
-        time.sleep(2)
-        print(f"Successfully selected index {index} from dropdown {id_fragment}")
-        return True
-    except Exception as e:
-        print(f"Failed selecting dropdown {id_fragment}: {e}")
-        return False
+def select_dropdown_by_index_partial(id_fragment, index, retries=5, delay=3):
+
+    for attempt in range(1, retries + 1):
+        try:
+            print(f"[Attempt {attempt}] Waiting for dropdown containing id: {id_fragment}")
+
+            dropdown_element = WebDriverWait(driver, 10).until(
+                EC.visibility_of_element_located(
+                    (By.XPATH, f"//select[contains(@id,'{id_fragment}')]")
+                )
+            )
+
+            # Wait until the dropdown actually has options
+            WebDriverWait(driver, 10).until(
+                lambda d: len(dropdown_element.find_elements(By.TAG_NAME, "option")) > 1
+            )
+
+            dropdown = Select(dropdown_element)
+            dropdown.select_by_index(index)
+
+            # Trigger ASP.NET change event
+            driver.execute_script(
+                "arguments[0].dispatchEvent(new Event('change'))",
+                dropdown_element
+            )
+
+            time.sleep(2)
+            print(f"Successfully selected index {index} from dropdown {id_fragment}")
+            return True
+
+        except Exception as e:
+            print(f"Failed selecting dropdown {id_fragment} on attempt {attempt}: {e}")
+            time.sleep(delay)
+
+    # If we get here, all retries failed
+    return False
 
 # Button click function
 def click_button(button_id):
