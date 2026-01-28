@@ -1,85 +1,79 @@
-from selenium import webdriver
-from selenium.webdriver.chrome.service import Service
-from selenium.webdriver.chrome.options import Options
-from webdriver_manager.chrome import ChromeDriverManager
-from selenium.webdriver.common.by import By
-from selenium.webdriver.support.ui import Select, WebDriverWait
-from selenium.webdriver.support import expected_conditions as EC
+import requests
+from bs4 import BeautifulSoup
+import os
+import base64
+import logging
 from google.oauth2.credentials import Credentials
 from google_auth_oauthlib.flow import InstalledAppFlow
 from google.auth.transport.requests import Request
 from googleapiclient.discovery import build
-import openpyxl
-import os
-import re
-import gspread
-import pandas as pd
-import time
-import logging
 
-chrome_options = Options()
-chrome_options.add_argument("--headless")
-chrome_options.add_argument("--no-sandbox")
-chrome_options.add_argument("--disable-dev-shm-usage")
+logging.basicConfig(level=logging.INFO)
 
-CREDENTIALS_PATH = 'credentials.json'
-TOKEN_PATH = 'token.json'
-SCOPES = ['https://www.googleapis.com/auth/spreadsheets']
+URL = "https://public.rma.usda.gov/livestockreports/LRPReport"
+SCOPES = ["https://www.googleapis.com/auth/spreadsheets"]
+SPREADSHEET_ID = "1eFn_RVcCw3MmdLRGASrYwoCbc1UPfFNVqq1Fbz2mvYg"
+TARGET_RANGE = "Sheet1!D1"
 
-def get_google_sheets_service():
-	creds = None
-	if os.path.exists(TOKEN_PATH):
-		creds = Credentials.from_authorized_user_file(TOKEN_PATH, SCOPES)
-	if not creds or not creds.valid:
-		if creds and creds.expired and creds.refresh_token:
-			creds.refresh(Request())
-		else:
-			flow = InstalledAppFlow.from_client_secrets_file(CREDENTIALS_PATH, SCOPES)
-			creds = flow.run_local_server(port=0, access_type='offline', prompt='consent')
-		with open(TOKEN_PATH, "w") as token:
-			token.write(creds.to_json())
-	return creds
+# ---------------- Google Auth ----------------
+CREDENTIALS_B64 = os.getenv("GOOGLE_OAUTH_CREDENTIALS_B64")
+if not CREDENTIALS_B64:
+    raise Exception("Missing GOOGLE_OAUTH_CREDENTIALS_B64 environment variable")
+
+with open("credentials.json", "w") as f:
+    f.write(base64.b64decode(CREDENTIALS_B64).decode("utf-8"))
 
 def get_sheets_service():
-	creds = authenticate_google_sheets()
-	service = build('sheets', 'v4', credentials=creds)
-	return service
+    creds = None
 
-logging.basicConfig(level=logging.DEBUG)
-service = Service(ChromeDriverManager().install())
-driver = webdriver.Chrome(service=service, options=chrome_options)
+    if os.path.exists("token.json"):
+        creds = Credentials.from_authorized_user_file("token.json", SCOPES)
 
-service = build("sheets", "v4", credentials=get_google_sheets_service())
+    if not creds or not creds.valid:
+        if creds and creds.expired and creds.refresh_token:
+            creds.refresh(Request())
+        else:
+            flow = InstalledAppFlow.from_client_secrets_file(
+                "credentials.json", SCOPES
+            )
+            creds = flow.run_local_server(port=0)
 
-try:
-	driver.get("https://public.rma.usda.gov/livestockreports/LRPReport.aspx")
-	logging.debug("Page loaded successfully.")
+        with open("token.json", "w") as token:
+            token.write(creds.to_json())
 
-	dropdown_element = driver.find_element(By.TAG_NAME, "select")
-	logging.debug("Dropdown found.")
+    return build("sheets", "v4", credentials=creds)
 
-	select = Select(dropdown_element)
-	first_option = select.options[0].text  # Extract only the first option
-	logging.debug(f"Extracted first dropdown option: {first_option}")
+# ---------------- Fetch First Effective Date ----------------
+session = requests.Session()
+session.headers.update({
+    "User-Agent": "Mozilla/5.0"
+})
 
-	spreadsheet_id = '1eFn_RVcCw3MmdLRGASrYwoCbc1UPfFNVqq1Fbz2mvYg'
-	range_name = 'Sheet1!D1'
-	sheet = service.spreadsheets()
+resp = session.get(URL)
+resp.raise_for_status()
 
-	update_values = [[first_option]]
+soup = BeautifulSoup(resp.text, "html.parser")
 
-	sheet.values().update(
-		spreadsheetId=spreadsheet_id,
-		range=range_name,
-		valueInputOption="RAW",
-		body={"values": update_values}
-	).execute()
+effective_date_select = soup.find("select", {"id": "EffectiveDate"})
+if not effective_date_select:
+    raise Exception("EffectiveDate dropdown not found")
 
-	print("First dropdown option successfully saved to Google Sheets!")
+first_option = effective_date_select.find("option")
+if not first_option:
+    raise Exception("No options found in EffectiveDate dropdown")
 
-except Exception as e:
-	print(f"Error extracting dropdown data: {e}")
+first_effective_date = first_option.get_text(strip=True)
+logging.info(f"Most recent effective date: {first_effective_date}")
 
-finally:
-	driver.quit()
-	logging.debug("Script finished successfully")
+# ---------------- Write to Google Sheets ----------------
+service = get_sheets_service()
+sheet = service.spreadsheets()
+
+sheet.values().update(
+    spreadsheetId=SPREADSHEET_ID,
+    range=TARGET_RANGE,
+    valueInputOption="RAW",
+    body={"values": [[first_effective_date]]}
+).execute()
+
+logging.info("Effective date successfully written to Google Sheets")
