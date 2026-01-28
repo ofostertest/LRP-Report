@@ -122,17 +122,23 @@ if not table_div:
 
 tables = table_div.find_all("table", recursive=True)
 selected_data = []
-found = set()  # global set across all tables
+found = set()  # Track which target values have been found
+
+TARGET_VALUES = {13, 17, 21, 26, 30, 34, 39, 43, 47}
+
+def price(col):
+    txt = col.get_text(strip=True)
+    m = re.search(r"\$\d+(?:\.\d{2})?", txt)
+    return m.group() if m else "N/A"
 
 for table in tables:
     rows = table.find_all("tr")
     for row in rows:
         cols = row.find_all("td")
-        if len(cols) > 13:
+        if len(cols) > 13:  # Ensure the row has enough columns
             val = cols[2].get_text(strip=True)
             if val.isdigit():
                 val_int = int(val)
-                # Only append if this target value hasn't been found yet
                 if val_int in TARGET_VALUES and val_int not in found:
                     selected_data.append([
                         cols[13].get_text(strip=True),  # Column 13
@@ -141,7 +147,14 @@ for table in tables:
                     ])
                     found.add(val_int)
 
-logging.info(f"Collected {len(selected_data)} rows")
+if len(selected_data) < len(TARGET_VALUES):
+    logging.warning(f"Only collected {len(selected_data)} rows out of {len(TARGET_VALUES)} target values")
+else:
+    logging.info(f"Collected all {len(selected_data)} rows")
+
+logging.info("Selected Data:")
+for row in selected_data:
+    logging.info(row)
 
 # ---------------- Write to Google Sheets ----------------
 service = get_sheets_service()
