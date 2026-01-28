@@ -1,154 +1,162 @@
-from selenium import webdriver
-from selenium.webdriver.chrome.service import Service
-from selenium.webdriver.chrome.options import Options
-from webdriver_manager.chrome import ChromeDriverManager
-from selenium.webdriver.common.by import By
-from selenium.webdriver.support.ui import Select, WebDriverWait
-from selenium.webdriver.support import expected_conditions as EC
+import requests
+from bs4 import BeautifulSoup
+import re
+import os
+import json
+import base64
+import logging
+import time
 from google.oauth2.credentials import Credentials
 from google_auth_oauthlib.flow import InstalledAppFlow
 from google.auth.transport.requests import Request
 from googleapiclient.discovery import build
-import openpyxl
-import os
-import re
-import gspread
-import pandas as pd
-import time
-import logging
+from requests.exceptions import HTTPError
 
-chrome_options = Options()
-chrome_options.add_argument("--headless")
-chrome_options.add_argument("--no-sandbox")
-chrome_options.add_argument("--disable-dev-shm-usage")
+logging.basicConfig(level=logging.INFO)
 
-CREDENTIALS_PATH = 'credentials.json'
-TOKEN_PATH = 'token.json'
-SCOPES = ['https://www.googleapis.com/auth/spreadsheets']
+URL = "https://public.rma.usda.gov/livestockreports/LRPReport"
+SCOPES = ["https://www.googleapis.com/auth/spreadsheets"]
+SPREADSHEET_ID = "1eFn_RVcCw3MmdLRGASrYwoCbc1UPfFNVqq1Fbz2mvYg"
 
-def get_google_sheets_service():
-	creds = None
-	if os.path.exists(TOKEN_PATH):
-		creds = Credentials.from_authorized_user_file(TOKEN_PATH, SCOPES)
-	if not creds or not creds.valid:
-		if creds and creds.expired and creds.refresh_token:
-			creds.refresh(Request())
-		else:
-			flow = InstalledAppFlow.from_client_secrets_file(CREDENTIALS_PATH, SCOPES)
-			creds = flow.run_local_server(port=0, access_type='offline', prompt='consent')
-		with open(TOKEN_PATH, "w") as token:
-			token.write(creds.to_json())
-	return creds
+STATE_VALUE = "38|North Dakota"
+COMMODITY_VALUE = "0801|Feeder Cattle"
+TYPE_VALUE = "809|Steers Weight 1"
+
+TARGET_VALUES = {13, 17, 21, 26, 30, 34, 39, 43, 47}
+
+# ---------------- Google Auth ----------------
+CREDENTIALS_B64 = os.getenv("GOOGLE_OAUTH_CREDENTIALS_B64")
+credentials_json = base64.b64decode(CREDENTIALS_B64).decode("utf-8")
+with open("credentials.json", "w") as f:
+    f.write(credentials_json)
 
 def get_sheets_service():
-	creds = authenticate_google_sheets()
-	service = build('sheets', 'v4', credentials=creds)
-	return service
+    creds = None
+    if os.path.exists("token.json"):
+        creds = Credentials.from_authorized_user_file("token.json", SCOPES)
+    if not creds or not creds.valid:
+        if creds and creds.expired and creds.refresh_token:
+            creds.refresh(Request())
+        else:
+            flow = InstalledAppFlow.from_client_secrets_file("credentials.json", SCOPES)
+            creds = flow.run_local_server(port=0)
+        with open("token.json", "w") as token:
+            token.write(creds.to_json())
+    return build("sheets", "v4", credentials=creds)
 
-logging.basicConfig(level=logging.DEBUG)
-service = Service(ChromeDriverManager().install())
-driver = webdriver.Chrome(service=service, options=chrome_options)
+# ---------------- Helpers ----------------
+def extract_hidden_fields(soup):
+    data = {}
+    for tag in soup.select("input[type=hidden]"):
+        if tag.get("name"):
+            data[tag["name"]] = tag.get("value", "")
+    return data
 
-driver.get("https://public.rma.usda.gov/livestockreports/LRPReport.aspx")
+def get_first_option_value(soup, select_id):
+    select = soup.find("select", {"id": select_id})
+    if not select:
+        raise Exception(f"Dropdown {select_id} not found")
+    option = select.find("option")
+    return option.get("value", "")
 
-def select_dropdown_by_index(dropdown_id, index):
+def post_with_retry(session, url, data, max_retries=3):
+    for attempt in range(1, max_retries + 1):
         try:
-                dropdown_element = WebDriverWait(driver,10).until(
-                        EC.presence_of_element_located((By.ID, dropdown_id))
-                )
-                dropdown = Select(dropdown_element)
-                dropdown.select_by_index(index)
-                time.sleep(1)
-                print(f"Selected index {index} from dropdown {dropdown_id}")
-        except Exception as e:
-                print(f"Error selecting dropdown {dropdown_id}: {e}")
+            resp = session.post(url, data=data)
+            resp.raise_for_status()
+            return resp
+        except HTTPError as e:
+            logging.warning(f"POST attempt {attempt} failed: {e}")
+            if attempt == max_retries:
+                raise
+            time.sleep(2)
 
-def click_button(button_id):
-        try:
-                button_element = WebDriverWait(driver, 10).until(
-                        EC.element_to_be_clickable((By.ID, button_id))
-                )
-                button_element.click()
-                time.sleep(2)
-                print(f"Clicked button {button_id}")
-        except Exception as e:
-                print(f"Error clicking button {button_id}: {e}")
+# ---------------- Start Session ----------------
+session = requests.Session()
+session.headers.update({
+    "User-Agent": "Mozilla/5.0",
+    "Referer": URL
+})
 
-select_dropdown_by_index("_ctl0_cphContent_ddlEffectiveDt", 0)
-click_button("_ctl0_cphContent_btnLRPNext")
+# -------- Step 1: Load page --------
+resp = session.get(URL)
+resp.raise_for_status()
+soup = BeautifulSoup(resp.text, "html.parser")
+form_data = extract_hidden_fields(soup)
 
-select_dropdown_by_index("_ctl0_cphContent_ddlLRPState", 33)
-click_button("_ctl0_cphContent_btnLRPNext")
+# -------- Step 2: Effective Date --------
+form_data["EffectiveDate"] = get_first_option_value(soup, "EffectiveDate")
+form_data["buttonType"] = "Next >>"
+resp = post_with_retry(session, URL, form_data)
+soup = BeautifulSoup(resp.text, "html.parser")
+form_data = extract_hidden_fields(soup)
 
-select_dropdown_by_index("_ctl0_cphContent_ddlLRPCommodity", 1)
-click_button("_ctl0_cphContent_btnLRPNext")
+# -------- Step 3: State --------
+form_data["StateSelection"] = "38|North Dakota"
+form_data["buttonType"] = "Next >>"
+resp = post_with_retry(session, URL, form_data)
+soup = BeautifulSoup(resp.text, "html.parser")
+form_data = extract_hidden_fields(soup)
 
-select_dropdown_by_index("_ctl0_cphContent_ddlType", 4)
-click_button("_ctl0_cphContent_btnCreateLRPReport")
+# -------- Step 4: Commodity --------
+form_data["CommoditySelection"] = "0801|Feeder Cattle"
+form_data["buttonType"] = "Next >>"
+resp = post_with_retry(session, URL, form_data)
+soup = BeautifulSoup(resp.text, "html.parser")
+form_data = extract_hidden_fields(soup)
 
-time.sleep(5)
+# -------- Step 5: Type --------
+form_data["TypeSelection"] = "812|Heifers Weight 2"
+form_data["buttonType"] = "Create Report"
+resp = post_with_retry(session, URL, form_data)
+soup = BeautifulSoup(resp.text, "html.parser")
 
-file_path = 'LRP-Spreadsheet.xlsx'
+# ---------------- Parse All Tables ----------------
+tables = soup.find_all("table")  # Search all tables on the page
+selected_data = []
+found = set()  # Track which target values have been found
 
-body = driver.find_element(By.TAG_NAME, 'body')
+TARGET_VALUES = {13, 17, 21, 26, 30, 34, 39, 43, 47}
 
-try:
-	table = WebDriverWait(driver, 20).until(
-		EC.presence_of_element_located((By.XPATH, "//table[@id='_ctl0_cphContent_tblContent']"))
-	)
-	WebDriverWait(driver, 10).until(
-		EC.presence_of_element_located((By.XPATH, "//table[@id='_ctl0_cphContent_tblContent']/tbody/tr[last()]"))
-	)
-	time.sleep(3)
-	
-	rows = table.find_elements(By.TAG_NAME, "tr")
-	selected_data = []
+def price(col):
+    txt = col.get_text(strip=True)
+    m = re.search(r"\$\d+(?:\.\d{2})?", txt)
+    return m.group() if m else "N/A"
 
-	target_values = {13, 17, 21, 26, 30, 34, 39, 43, 47}
-	found_values = {}
+for table in tables:
+    rows = table.find_all("tr")
+    for row in rows:
+        cols = row.find_all("td")
+        if len(cols) > 13:
+            val = cols[2].get_text(strip=True)
+            if val.isdigit():
+                val_int = int(val)
+                if val_int in TARGET_VALUES and val_int not in found:
+                    selected_data.append([
+                        cols[13].get_text(strip=True),  # Column 13
+                        price(cols[8]),                 # Column 8
+                        cols[11].get_text(strip=True)   # Column 11
+                    ])
+                    found.add(val_int)
 
-	for row in rows:
-		cols = row.find_elements(By.TAG_NAME, "td")
-		if len(cols) > 13:
-			column_3_value = cols[2].text.strip()
-			
-			if column_3_value.isdigit():
-				column_3_int = int(column_3_value)
-				
-				if column_3_int in target_values and column_3_int not in found_values:
-					raw_price_8 = cols[8].text.strip() if len(cols) > 8 else "N/A"
-					raw_price_12 = cols[12].text.strip() if len(cols) > 12 else "N/A"
+if len(selected_data) < len(TARGET_VALUES):
+    logging.warning(f"Only collected {len(selected_data)} rows out of {len(TARGET_VALUES)} target values")
+else:
+    logging.info(f"Collected all {len(selected_data)} rows")
 
-					def format_price(price_text):
-						if not price_text.strip():
-							return "N/A"
-						match = re.search(r'(\$\d{1,6}(?:\.\d{0,2})?)', price_text)
-						return match.group() if match else price_text
+logging.info("Selected Data:")
+for row in selected_data:
+    logging.info(row)
 
-					formatted_price_8 = format_price(raw_price_8)
-					formatted_price_12 = format_price(raw_price_12)
+# ---------------- Write to Google Sheets ----------------
+service = get_sheets_service()
+sheet = service.spreadsheets()
 
-					selected_data.append([
-						cols[13].text if len (cols) > 13 else "N/A",
-						formatted_price_8,
-						formatted_price_12
-					])
+sheet.values().update(
+    spreadsheetId=SPREADSHEET_ID,
+    range="Sheet1!C50",
+    valueInputOption="RAW",
+    body={"values": selected_data}
+).execute()
 
-					found_values[column_3_int] = True
-				
-	print(f"Selected Data: {selected_data}")
-
-	service = build("sheets","v4", credentials=get_google_sheets_service())
-	
-	spreadsheet_id = '1eFn_RVcCw3MmdLRGASrYwoCbc1UPfFNVqq1Fbz2mvYg'
-	range_name = 'Sheet1!C50'
-	sheet = service.spreadsheets()
-	update_values = selected_data
-	request = sheet.values().update(spreadsheetId=spreadsheet_id,range=range_name,valueInputOption="RAW",body={"values": update_values}).execute()
-	
-	print("Data successfully saved to Google Sheets!") 
-
-except Exception as e:
-	print(f"Error extracting table data: {e}")
-
-driver.quit()
+logging.info("Upload complete")
