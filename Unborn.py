@@ -121,16 +121,19 @@ for row in rows:
     cols = row.find_all("td")
     if len(cols) > 13:
         val = cols[2].get_text(strip=True)
-        if val.isdigit() and int(val) in target_values and int(val) not in found:
-            def price(col):
-                txt = col.get_text(strip=True)
-                m = re.search(r"\$\d+(?:\.\d{2})?", txt)
-                return m.group() if m else "N/A"
+        if val.isdigit():
+            val_int = int(val)
+            if val_int in target_values and val_int not in found:
+            
+                def price(col):
+                    txt = col.get_text(strip=True)
+                    m = re.search(r"\$\d+(?:\.\d{2})?", txt)
+                    return m.group() if m else "N/A"
 
-            selected_data.append([
-                cols[13].get_text(strip=True),
-                price(cols[8]),
-                price(cols[12])
+                selected_data.append([
+                    cols[13].get_text(strip=True),
+                    price(cols[8]),
+                    cols[11].get_text(strip=True)
             ])
             found.add(int(val))
 
