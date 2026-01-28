@@ -99,7 +99,7 @@ form_data = extract_hidden_fields(soup)
 
 # -------- Step 5: Type (fixed) --------
 form_data["TypeSelection"] = "817|Unborn Bulls & Heifers"
-form_data["buttonType"] = "Create LRP Report"
+form_data["buttonType"] = "Create Report"
 
 resp = session.post(URL, data=form_data)
 resp.raise_for_status()
