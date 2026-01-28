@@ -110,7 +110,7 @@ table_div = soup.find("div", {"id": "oReportDiv"})
 if not table_div:
     raise Exception("Report table not found on page")
 
-table = table_div.find("table")
+table = table_div.find_all("table")
 rows = table.find_all("tr")
 selected_data = []
 
