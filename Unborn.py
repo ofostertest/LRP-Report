@@ -140,7 +140,7 @@ for table in tables:
                     selected_data.append([
                         cols[13].get_text(strip=True),  # Column 13
                         price(cols[8]),                 # Column 8
-                        cols[11].get_text(strip=True)   # Column 11
+                        cols[12].get_text(strip=True)   # Column 12
                     ])
                     found.add(val_int)
 
