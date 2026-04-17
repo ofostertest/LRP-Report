@@ -140,7 +140,7 @@ for table in tables:
                     selected_data.append([
                         cols[14].get_text(strip=True),  # Column 14 Date
                         price(cols[9]),                 # Column 9 Coverage Price
-                        cols[12].get_text(strip=True)   # Column 12
+                        cols[12].get_text(strip=True)   # Column 12 Cost Per CWT
                     ])
                     found.add(val_int)
 
