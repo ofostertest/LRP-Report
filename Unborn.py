@@ -139,7 +139,7 @@ for table in tables:
                 if val_int in TARGET_VALUES and val_int not in found:
                     selected_data.append([
                         cols[13].get_text(strip=True),  # Column 13
-                        price(cols[8]),                 # Column 8
+                        price(cols[10]),                 # Column 10
                         cols[12].get_text(strip=True)   # Column 12
                     ])
                     found.add(val_int)
