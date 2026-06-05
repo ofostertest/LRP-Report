@@ -120,11 +120,12 @@ tables = soup.find_all("table")
 
 TARGET_VALUES = [13, 17, 21, 26, 30, 34, 39, 43, 47]
 
-# Initialize all weeks with zero values
 results = {
     week: ["0", "0", "0"]
     for week in TARGET_VALUES
 }
+
+captured = set()
 
 for table in tables:
     rows = table.find_all("tr")
@@ -138,14 +139,17 @@ for table in tables:
             if val.isdigit():
                 week = int(val)
 
-                if week in TARGET_VALUES:
+                if week in TARGET_VALUES and week not in captured:
+
                     results[week] = [
-                        cols[14].get_text(strip=True),  # Date
-                        price(cols[9]),                # Coverage Price
-                        cols[12].get_text(strip=True)  # Cost Per CWT
+                        cols[14].get_text(strip=True),
+                        price(cols[9]),
+                        cols[12].get_text(strip=True)
                     ]
 
-# Build final output in the exact desired order
+                    captured.add(week)
+
+# ← PUT selected_data HERE
 selected_data = [
     results[week]
     for week in TARGET_VALUES
@@ -155,7 +159,7 @@ selected_data = [
 logging.info("Selected Data:")
 for week, row in zip(TARGET_VALUES, selected_data):
     logging.info(f"Week {week}: {row}")
-
+                    
 # ---------------- Write to Google Sheets ----------------
 service = get_sheets_service()
 sheet = service.spreadsheets()
