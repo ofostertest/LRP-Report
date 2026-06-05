@@ -2,18 +2,16 @@ import requests
 from bs4 import BeautifulSoup
 import re
 import os
-import json
 import base64
 import logging
-import time
 from google.oauth2.credentials import Credentials
 from google_auth_oauthlib.flow import InstalledAppFlow
 from google.auth.transport.requests import Request
 from googleapiclient.discovery import build
-from requests.exceptions import HTTPError
 
 logging.basicConfig(level=logging.INFO)
 
+# ---------------- Constants ----------------
 URL = "https://public.rma.usda.gov/livestockreports/LRPReport"
 SCOPES = ["https://www.googleapis.com/auth/spreadsheets"]
 SPREADSHEET_ID = "1eFn_RVcCw3MmdLRGASrYwoCbc1UPfFNVqq1Fbz2mvYg"
@@ -34,14 +32,19 @@ def get_sheets_service():
     creds = None
     if os.path.exists("token.json"):
         creds = Credentials.from_authorized_user_file("token.json", SCOPES)
+
     if not creds or not creds.valid:
         if creds and creds.expired and creds.refresh_token:
             creds.refresh(Request())
         else:
-            flow = InstalledAppFlow.from_client_secrets_file("credentials.json", SCOPES)
+            flow = InstalledAppFlow.from_client_secrets_file(
+                "credentials.json", SCOPES
+            )
             creds = flow.run_local_server(port=0)
+
         with open("token.json", "w") as token:
             token.write(creds.to_json())
+
     return build("sheets", "v4", credentials=creds)
 
 # ---------------- Helpers ----------------
@@ -59,17 +62,10 @@ def get_first_option_value(soup, select_id):
     option = select.find("option")
     return option.get("value", "")
 
-def post_with_retry(session, url, data, max_retries=3):
-    for attempt in range(1, max_retries + 1):
-        try:
-            resp = session.post(url, data=data)
-            resp.raise_for_status()
-            return resp
-        except HTTPError as e:
-            logging.warning(f"POST attempt {attempt} failed: {e}")
-            if attempt == max_retries:
-                raise
-            time.sleep(2)
+def price(col):
+    txt = col.get_text(strip=True)
+    m = re.search(r"\$\d+(?:\.\d{2})?", txt)
+    return m.group() if m else "N/A"
 
 # ---------------- Start Session ----------------
 session = requests.Session()
@@ -84,79 +80,106 @@ resp.raise_for_status()
 soup = BeautifulSoup(resp.text, "html.parser")
 form_data = extract_hidden_fields(soup)
 
-# -------- Step 2: Effective Date --------
+# -------- Step 2: Effective Date (most recent) --------
 form_data["EffectiveDate"] = get_first_option_value(soup, "EffectiveDate")
 form_data["buttonType"] = "Next >>"
-resp = post_with_retry(session, URL, form_data)
+
+resp = session.post(URL, data=form_data)
+resp.raise_for_status()
 soup = BeautifulSoup(resp.text, "html.parser")
 form_data = extract_hidden_fields(soup)
 
 # -------- Step 3: State --------
-form_data["StateSelection"] = "38|North Dakota"
+form_data["StateSelection"] = STATE_VALUE
 form_data["buttonType"] = "Next >>"
-resp = post_with_retry(session, URL, form_data)
+
+resp = session.post(URL, data=form_data)
+resp.raise_for_status()
 soup = BeautifulSoup(resp.text, "html.parser")
 form_data = extract_hidden_fields(soup)
 
 # -------- Step 4: Commodity --------
-form_data["CommoditySelection"] = "0801|Feeder Cattle"
+form_data["CommoditySelection"] = COMMODITY_VALUE
 form_data["buttonType"] = "Next >>"
-resp = post_with_retry(session, URL, form_data)
+
+resp = session.post(URL, data=form_data)
+resp.raise_for_status()
 soup = BeautifulSoup(resp.text, "html.parser")
 form_data = extract_hidden_fields(soup)
 
 # -------- Step 5: Type --------
-form_data["TypeSelection"] = "810|Steers Weight 2"
+form_data["TypeSelection"] = TYPE_VALUE
 form_data["buttonType"] = "Create Report"
-resp = post_with_retry(session, URL, form_data)
+
+resp = session.post(URL, data=form_data)
+resp.raise_for_status()
 soup = BeautifulSoup(resp.text, "html.parser")
 
 # ---------------- Parse All Tables ----------------
-tables = soup.find_all("table")  # Search all tables on the page
-selected_data = []
-found = set()  # Track which target values have been found
+tables = soup.find_all("table")
 
-TARGET_VALUES = {13, 17, 21, 26, 30, 34, 39, 43, 47}
+TARGET_VALUES = [13, 17, 21, 26, 30, 34, 39, 43, 47]
 
-def price(col):
-    txt = col.get_text(strip=True)
-    m = re.search(r"\$\d+(?:\.\d{2})?", txt)
-    return m.group() if m else "N/A"
+results = {
+    week: ["0", "0", "0"]
+    for week in TARGET_VALUES
+}
+
+captured = set()
 
 for table in tables:
     rows = table.find_all("tr")
+
     for row in rows:
         cols = row.find_all("td")
-        if len(cols) > 13:
+
+        if len(cols) > 14:
             val = cols[2].get_text(strip=True)
+
             if val.isdigit():
-                val_int = int(val)
-                if val_int in TARGET_VALUES and val_int not in found:
-                    selected_data.append([
-                        cols[14].get_text(strip=True),  # Column 14 Date
-                        price(cols[9]),                 # Column 9 Coverage Price
-                        cols[12].get_text(strip=True)   # Column 12 Cost Per CWT
-                    ])
-                    found.add(val_int)
+                week = int(val)
 
-if len(selected_data) < len(TARGET_VALUES):
-    logging.warning(f"Only collected {len(selected_data)} rows out of {len(TARGET_VALUES)} target values")
-else:
-    logging.info(f"Collected all {len(selected_data)} rows")
+                if week in TARGET_VALUES and week not in captured:
 
+                    results[week] = [
+                        cols[14].get_text(strip=True),
+                        price(cols[9]),
+                        cols[12].get_text(strip=True)
+                    ]
+
+                    captured.add(week)
+
+# ← PUT selected_data HERE
+selected_data = [
+    results[week]
+    for week in TARGET_VALUES
+]
+
+# Logging
 logging.info("Selected Data:")
-for row in selected_data:
-    logging.info(row)
-
+for week, row in zip(TARGET_VALUES, selected_data):
+    logging.info(f"Week {week}: {row}")
+                    
 # ---------------- Write to Google Sheets ----------------
 service = get_sheets_service()
 sheet = service.spreadsheets()
 
+# Clear old values first
+sheet.values().clear(
+    spreadsheetId=SPREADSHEET_ID,
+    range="Sheet1!C26:E34"
+).execute()
+
+# Upload new values
 sheet.values().update(
     spreadsheetId=SPREADSHEET_ID,
     range="Sheet1!C26",
     valueInputOption="RAW",
     body={"values": selected_data}
 ).execute()
+
+logging.info("Upload complete")
+
+logging.info("Upload complete")
 
 logging.info("Upload complete")
