@@ -18,7 +18,7 @@ SPREADSHEET_ID = "1eFn_RVcCw3MmdLRGASrYwoCbc1UPfFNVqq1Fbz2mvYg"
 
 STATE_VALUE = "38|North Dakota"
 COMMODITY_VALUE = "0801|Feeder Cattle"
-TYPE_VALUE = "809|Steers Weight 1"
+TYPE_VALUE = "810|Steers Weight 2"
 
 TARGET_VALUES = {13, 17, 21, 26, 30, 34, 39, 43, 47}
 
