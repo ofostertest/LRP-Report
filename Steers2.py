@@ -144,7 +144,7 @@ for table in tables:
                     results[week] = [
                         cols[14].get_text(strip=True),
                         price(cols[9]),
-                        cols[12].get_text(strip=True)
+                        cols[13].get_text(strip=True)
                     ]
 
                     captured.add(week)
