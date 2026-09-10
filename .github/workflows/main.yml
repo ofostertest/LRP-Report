@@ -54,6 +54,7 @@ jobs:
         run: |
           set -e
           python Unborn.py
+          python Unborn2.py
           python Steers1.py
           python Steers2.py
           python Heifers1.py
