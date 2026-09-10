@@ -167,13 +167,13 @@ sheet = service.spreadsheets()
 # Clear old values first
 sheet.values().clear(
     spreadsheetId=SPREADSHEET_ID,
-    range="Sheet1!C15:E23"
+    range="Sheet1!C26:E34"
 ).execute()
 
 # Upload new values
 sheet.values().update(
     spreadsheetId=SPREADSHEET_ID,
-    range="Sheet1!C15",
+    range="Sheet1!C26",
     valueInputOption="RAW",
     body={"values": selected_data}
 ).execute()
